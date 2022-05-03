@@ -1,0 +1,53 @@
+#ifndef TrainTicketSystem_Commander_HPP
+#define TrainTicketSystem_Commander_HPP
+
+#include <iostream>
+#include <cstring>
+
+namespace hnyls2002 {
+
+    const int CmdMax = 17;
+    const int argMax = 26;
+
+    struct CmdType {
+        int FuncID, Time;
+        std::string arg[argMax];
+    };
+
+    const std::string CmdName[CmdMax] = {"add_usr", "login", "logout", "query_profile",
+                                         "modify_profile", "add_train", "delete_train",
+                                         "release_train", "query_train", "query_ticket",
+                                         "query_transfer", "buy_ticket", "query_order",
+                                         "refund_ticket", "rollback", "clean", "exit"};
+
+    sjtu::vector<std::string> split(const std::string &str) {
+        sjtu::vector<std::string> ret;
+        int len = str.size();
+        std::string tmp;
+        for (int i = 0; i < len; ++i) {
+            if (str[i] == ' ') {
+                if (!tmp.empty())ret.push_back(tmp);
+                tmp.clear();
+            } else tmp = tmp + str[i];
+        }
+        if (!tmp.empty())ret.push_back(tmp);
+        return ret;
+    }
+
+    CmdType Parser(const std::string &str) {
+        CmdType ret;
+        auto res = split(str);
+        ret.Time = std::stoi(res[0].substr(1, res[0].size() - 2));
+        for (int i = 0; i < CmdMax; ++i)
+            if (res[1] == CmdName[i]) {
+                ret.FuncID = i;
+                break;
+            }
+        for (int i = 2, b = res.size(); i < b; i+=2)
+            ret.arg[res[i][1]-'a']=res[i+1];
+        return ret;
+    }
+
+}
+
+#endif
