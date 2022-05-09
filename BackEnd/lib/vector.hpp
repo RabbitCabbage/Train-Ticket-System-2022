@@ -324,6 +324,11 @@ namespace sjtu {
                 new(p + i) T(*(other.p + i));
         }
 
+        vector(const T &element) : cur_num(0), lim(1), sizT(sizeof(T)) {
+            p = (T *) malloc(sizT);
+            this->push_back(element);
+        }
+
         ~vector() {
             /**
              * TODO Destructor

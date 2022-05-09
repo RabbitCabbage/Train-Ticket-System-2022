@@ -11,6 +11,34 @@
 
 namespace hnyls2002 {
 
+    template<typename T>
+    void sort(T *begin, T *end) {
+        if (begin >= end - 1)return;
+        int len = end - begin;
+        T mid_val = begin[rand() % len], *l = begin, *r = end - 1;
+        while (l <= r) {
+            while (*l < mid_val)++l;
+            while (mid_val < *r)--r;
+            if (l <= r)std::swap(*l, *r), ++l, --r;
+        }
+        if (l < end)sort(l, end);
+        if (r > begin)sort(begin, r + 1);
+    }
+
+    template<typename T>
+    void sort(T *begin, T *end, T(*cmp)(const T &, const T &)) {
+        if (begin >= end - 1)return;
+        int len = end - begin;
+        T mid_val = begin[rand() % len], *l = begin, *r = end - 1;
+        while (l <= r) {
+            while (cmp(*l, mid_val))++l;
+            while (cmp(mid_val, *r))--r;
+            if (l <= r)std::swap(*l, *r), ++l, --r;
+        }
+        if (l < end)sort(l, end);
+        if (r > begin)sort(begin, r + 1);
+    }
+
     template<int LEN>
     class fstr {
     public:
@@ -26,11 +54,28 @@ namespace hnyls2002 {
             s[siz] = '\0';
         }
 
-        bool operator==(const fstr &oth) const {
+        bool operator==(const fstr<LEN> &oth) const {
             if (siz != oth.siz)return false;
             for (int i = 0; i < siz; ++i)
                 if (s[i] != oth.s[i])return false;
             return true;
+        }
+
+        bool operator!=(const fstr<LEN> &oth) const {
+            return !(*this == oth);
+        }
+
+        bool operator<(const fstr<LEN> &oth) const {
+            return strcmp(s, oth.s) < 0;
+        }
+
+        std::string to_string() {
+            return std::string(s, siz);
+        }
+
+        friend std::ostream &operator<<(std::ostream &os, fstr<LEN> value) {
+            os << value.s;
+            return os;
         }
     };
 

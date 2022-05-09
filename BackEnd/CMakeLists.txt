@@ -9,8 +9,6 @@ include_directories(lib)
 include_directories(src)
 
 add_executable(TrainTicketSystem
-        db/bptree.hpp
-        db/linked_list.hpp
         lib/linked_hashmap.hpp
         lib/map.hpp
         lib/vector.hpp
@@ -19,4 +17,5 @@ add_executable(TrainTicketSystem
         src/Commander.hpp
         src/main.cpp
         src/RollBack.hpp
-        src/System.hpp lib/tools.hpp)
+        src/System.hpp
+        lib/tools.hpp)

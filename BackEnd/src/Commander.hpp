@@ -11,7 +11,15 @@ namespace hnyls2002 {
 
     struct CmdType {
         int FuncID, Time;
-        std::string arg[argMax];
+        std::string cmd_arg[argMax];
+
+        std::string &operator[](const char &c) {
+            return cmd_arg[c - 'a'];
+        }
+
+        const std::string &operator[](const char &c) const {
+            return cmd_arg[c - 'a'];
+        }
     };
 
     const std::string CmdName[CmdMax] = {"add_usr", "login", "logout", "query_profile",
@@ -28,7 +36,7 @@ namespace hnyls2002 {
             if (str[i] == ' ') {
                 if (!tmp.empty())ret.push_back(tmp);
                 tmp.clear();
-            } else tmp = tmp + str[i];
+            } else tmp += str[i];
         }
         if (!tmp.empty())ret.push_back(tmp);
         return ret;
@@ -43,8 +51,8 @@ namespace hnyls2002 {
                 ret.FuncID = i;
                 break;
             }
-        for (int i = 2, b = res.size(); i < b; i+=2)
-            ret.arg[res[i][1]-'a']=res[i+1];
+        for (int i = 2, b = res.size(); i < b; i += 2)
+            ret[res[i][1]] = res[i + 1];
         return ret;
     }
 
