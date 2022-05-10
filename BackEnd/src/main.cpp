@@ -31,6 +31,13 @@ void test1() {
     std::cout << a.to_string().size() << std::endl;
 }
 
+void test2() {
+    std::string str;
+    std::cin >> str;
+    hnyls2002::Date t = str;
+    std::cout << t.mm << "\n" << t.dd << std::endl;
+}
+
 int main() {
     /*file();
     std::string str;
@@ -39,7 +46,6 @@ int main() {
         for (auto x: s)
             std::cout << x << std::endl;
     }*/
-    test1();
-    std::cout << (char) ('9' + 1) << std::endl;
+    test2();
     return 0;
 }

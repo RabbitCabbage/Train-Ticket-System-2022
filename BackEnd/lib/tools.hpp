@@ -54,6 +54,12 @@ namespace hnyls2002 {
             s[siz] = '\0';
         }
 
+        fstr<LEN> &operator=(const fstr<LEN> &oth) {
+            siz = oth.siz;
+            memcpy(s, oth.s, sizeof(s));
+            return *this;
+        }
+
         bool operator==(const fstr<LEN> &oth) const {
             if (siz != oth.siz)return false;
             for (int i = 0; i < siz; ++i)
@@ -79,12 +85,12 @@ namespace hnyls2002 {
         }
     };
 
-    sjtu::vector<std::string> splitCN(const std::string str) {
+    sjtu::vector<std::string> split_cmd(const std::string str, const char &ch) {
         sjtu::vector<std::string> ret;
         int len = str.size();
         std::string tmp;
         for (int i = 0; i < len; ++i) {
-            if (str[i] != '|')tmp = tmp + str[i];
+            if (str[i] != ch)tmp = tmp + str[i];
             else ret.push_back(tmp), tmp.clear();
         }
         if (!tmp.empty())ret.push_back(tmp);
@@ -93,10 +99,28 @@ namespace hnyls2002 {
 
     struct Date {
         int mm, dd;
+
+        Date(int _mm = 0, int _dd = 0) : mm(_mm), dd(_dd) {}
+
+        Date(const std::string &str) {
+            int p = 0;
+            for (int b = str.size(); str[p] != '-' && p < b; ++p);
+            mm = std::stoi(str.substr(0, p));
+            dd = std::stoi(str.substr(p + 1, str.size() - 1 - p));
+        }
     };
 
     struct Time : private Date {
-        int hh, mi;
+        int hr, mi;
+
+        Time(int _mm = 0, int _dd = 0, int _hr = 0, int _mi = 0) : Date(_mm, _dd), hr(_hr), mi(_mi) {}
+
+        Time(const std::string &str) : Date(0, 0) {
+            int p = 0;
+            for (int b = str.size(); str[p] != ':' && p < b; ++p);
+            hr = std::stoi(str.substr(0, p));
+            mi = std::stoi(str.substr(p + 1, str.size() - 1 - p));
+        }
     };
 
 }
