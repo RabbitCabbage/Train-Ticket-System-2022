@@ -97,6 +97,9 @@ namespace hnyls2002 {
         return ret;
     }
 
+    int mon[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    int mon_s[13] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
+
     struct Date {
         int mm, dd;
 
@@ -107,6 +110,18 @@ namespace hnyls2002 {
             for (int b = str.size(); str[p] != '-' && p < b; ++p);
             mm = std::stoi(str.substr(0, p));
             dd = std::stoi(str.substr(p + 1, str.size() - 1 - p));
+        }
+
+        bool operator<(const Date &d) const {
+            if (mm != d.mm)return mm < d.mm;
+            return dd < d.dd;
+        }
+
+        Date operator+(int x) {
+            Date ret = *this;
+            ret.dd += x;
+            if (ret.dd > mon[mm])ret.dd -= mon[mm], ++ret.mm;
+            return ret;
         }
     };
 
@@ -120,6 +135,49 @@ namespace hnyls2002 {
             for (int b = str.size(); str[p] != ':' && p < b; ++p);
             hr = std::stoi(str.substr(0, p));
             mi = std::stoi(str.substr(p + 1, str.size() - 1 - p));
+        }
+
+        Time(const Date &date, const Time &time) : Date(date) {// 取date的日期和time的时间部分
+            hr = time.hr, mi = time.mi;
+        }
+
+        std::string to_string() {
+            std::string ret;
+            ret += (mm < 10 ? '0' + std::to_string(mm) : std::to_string(mm)) + '-';
+            ret += (dd < 10 ? '0' + std::to_string(dd) : std::to_string(dd)) + ' ';
+            ret += (hr < 10 ? '0' + std::to_string(hr) : std::to_string(hr)) + ':';
+            ret += mi < 10 ? '0' + std::to_string(mi) : std::to_string(mi);
+            return ret;
+        }
+
+        Time operator+(int x) {
+            Time ret = *this;
+            int sum = mi + 1 + hr * 60 + (dd - 1) * 24 * 60 + mon_s[mm - 1] * 24 * 60 + x;
+
+            for (int i = 1; i <= 12; ++i)
+                if (mon_s[i] * 24 * 60 >= sum) {
+                    sum -= mon_s[i - 1] * 24 * 60;
+                    ret.mm = i;
+                    break;
+                }
+            for (int i = 1; i <= mon[ret.mm]; ++i)
+                if (i * 24 * 60 >= sum) {
+                    sum -= (i - 1) * 24 * 60;
+                    ret.dd = i;
+                    break;
+                }
+            for (int i = 0; i <= 23; ++i)
+                if ((i + 1) * 60 >= sum) {
+                    sum -= i * 60;
+                    ret.hr = i, ret.mi = sum - 1;
+                    break;
+                }
+            return ret;
+        }
+
+        Time &operator+=(int x) {
+            *this = *this + x;
+            return *this;
         }
     };
 

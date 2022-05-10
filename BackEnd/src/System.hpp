@@ -35,7 +35,7 @@ namespace hnyls2002 {
         struct TrainInfo {
             fstr<TrainIDMax> TrainID;
             fstr<StNameMax> StName[StNumMax];
-            int StNum, SeatNum, Prices[StNumMax];
+            int StNum, SeatNum, Prices[StNumMax];// 用前缀和来存票价
             int TravelTimes[StNumMax], StopOverTimes[StNumMax];
             Time StartTime;
             std::pair<Date, Date> SaleDate;
@@ -45,21 +45,23 @@ namespace hnyls2002 {
 
         bptree<fstr<TrainIDMax>, TrainInfo> TrainDb;
 
-        struct DayTrain {
-            int RemainSeats[StNumMax];
+        struct DayTrainInfo {
+            int RemainSeats[StNumMax];// 第1项为SeatNum，以此类推
         };
+
+        bptree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo> DayTrainDb;
 
 
         //reference to stackoverflow
         //https://stackoverflow.com/questions/26331628/reference-to-non-static-member-function-must-be-called
-        ret_type (System::*func[100])(const CmdType &) ={&System::add_user, &System::login, &System::logout,
-                                                         &System::query_profile, &System::modify_profile,
-                                                         &System::add_train, &System::delete_train,
-                                                         &System::release_train, &System::query_train,
-                                                         &System::query_ticket, &System::query_transfer,
-                                                         &System::buy_ticket, &System::query_order,
-                                                         &System::refund_ticket, &System::rollback,
-                                                         &System::clean, &System::exit};
+        ret_type (System::* func[100])(const CmdType &) ={&System::add_user, &System::login, &System::logout,
+                                                          &System::query_profile, &System::modify_profile,
+                                                          &System::add_train, &System::delete_train,
+                                                          &System::release_train, &System::query_train,
+                                                          &System::query_ticket, &System::query_transfer,
+                                                          &System::buy_ticket, &System::query_order,
+                                                          &System::refund_ticket, &System::rollback,
+                                                          &System::clean, &System::exit};
 
         ret_type Opt(const std::string &str) {
             CmdType a = Parser(str);
@@ -140,19 +142,20 @@ namespace hnyls2002 {
 
             ret_type tmp = split_cmd(arg['s'], '|');// StationName
             for (int i = 0; i < Train.StNum; ++i)
-                Train.StName[i] = tmp[i];
+                Train.StName[i + 1] = tmp[i];
 
-            tmp = split_cmd(arg['p'], '|'); // Prices n-1
+            tmp = split_cmd(arg['p'], '|'); // Prices n-1 前缀和 第0项为0
+            Train.Prices[0] = 0;
             for (int i = 0; i < Train.StNum - 1; ++i)
-                Train.Prices[i] = std::stoi(tmp[i]);
+                Train.Prices[i + 1] = Train.Prices[i] + std::stoi(tmp[i]);
 
             tmp = split_cmd(arg['t'], '|');
             for (int i = 0; i < Train.StNum - 1; ++i)// TravelTimes n-1
-                Train.TravelTimes[i] = std::stoi(tmp[i]);
+                Train.TravelTimes[i + 1] = std::stoi(tmp[i]);
 
             tmp = split_cmd(arg['o'], '|');
             for (int i = 0; i < Train.StNum - 2; ++i)// StopOverTimes n-2 , if only two , replaced with '_'
-                Train.StopOverTimes[i] = std::stoi(tmp[i]);
+                Train.StopOverTimes[i + 1] = std::stoi(tmp[i]);
 
             tmp = split_cmd(arg['d'], '|');
             Train.SaleDate.first = tmp[0];
@@ -170,10 +173,43 @@ namespace hnyls2002 {
             return ret_value(0);
         }
 
-        ret_type release_train(const CmdType &arg) {
+        ret_type release_train(const CmdType &arg) {// 先不把DayTrain加进去，有购票的时候再加？
+            if (TrainDb.find(arg['i']) == TrainDb.end())return ret_value(-1);// 没有找到这辆车
+            if (TrainDb[arg['i']].is_released)return ret_value(-1);// 已经发布了
+            TrainDb[arg['i']].is_released = 1;
+            return ret_value(0);
         }
 
         ret_type query_train(const CmdType &arg) {
+            if (TrainDb.find(arg['i']) == TrainDb.end())return ret_value(-1);// 没有找到这辆车
+            TrainInfo Train = TrainDb[arg['i']];
+            Date Day = arg['d'];
+            if (Day < Train.SaleDate.first || Train.SaleDate.second < Day)return ret_value(-1);// 这段时间不发车
+            // 注意格式
+            bool is_in = true;
+            DayTrainInfo DayTrain;
+            if (DayTrainDb.find({arg['i'], arg['d']}) == DayTrainDb.end())is_in = false;
+            if (is_in) DayTrain = DayTrainDb[{arg['i'], arg['d']}];
+
+            ret_type ret;
+            ret.push_back(arg['i']);
+            ret.push_back(std::string(1, Train.Type));
+
+            Time Timeline(arg['d'], Train.StartTime);
+
+            for (int i = 1; i <= Train.StNum; ++i) {
+                std::string tmp;
+                tmp += Train.StName[i].to_string() + " ";
+                if (i > 1)Timeline += Train.TravelTimes[i - 1];
+                tmp += i == 1 ? "xx-xx xx:xx" : Timeline.to_string();
+                tmp += " -> ";
+                if (i > 1 && i < Train.StNum)
+                    Timeline = Timeline + Train.StopOverTimes[i - 1];
+                tmp += i == Train.StNum ? "xx-xx xx:xx" : Timeline.to_string();
+                tmp += " " + std::to_string(Train.Prices[i]) + " ";
+                if (is_in)tmp += std::to_string(DayTrain.RemainSeats[i]);
+                else tmp += std::to_string(Train.StNum);
+            }
         }
 
         ret_type query_ticket(const CmdType &arg) {

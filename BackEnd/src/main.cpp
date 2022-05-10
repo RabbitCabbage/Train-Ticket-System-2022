@@ -38,6 +38,31 @@ void test2() {
     std::cout << t.mm << "\n" << t.dd << std::endl;
 }
 
+void test3() {
+    using namespace hnyls2002;
+    bptree<std::pair<fstr<100>, Date>, std::string> DayTrainDb;
+    srand((unsigned) time(NULL));
+    for (int i = 1; i <= 100; ++i) {
+        std::string tmp;
+        for (int j = 1; j <= 10; ++j)
+            tmp += rand() % 26 + 'a';
+        for (int i = 1; i <= 30; ++i) {
+            Date day(7, i);
+            DayTrainDb[{tmp, day}] = std::to_string(day.mm) + "-" + std::to_string(day.dd) + " " + tmp;
+        }
+    }
+    for (auto it: DayTrainDb)
+        std::cout << it.second << std::endl;
+}
+
+void test4() {
+    freopen("../testdata/xjb.out", "w", stdout);
+    using namespace hnyls2002;
+    Time a(1, 1, 0, 0);
+    for (int i = 0; i < 365 * 24 * 60; ++i)
+        std::cout << (a + i).to_string() << std::endl;
+}
+
 int main() {
     /*file();
     std::string str;
@@ -46,6 +71,6 @@ int main() {
         for (auto x: s)
             std::cout << x << std::endl;
     }*/
-    test2();
+    test4();
     return 0;
 }
