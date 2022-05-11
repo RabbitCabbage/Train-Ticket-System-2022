@@ -85,6 +85,10 @@ namespace sjtu {
 
             iterator(T *_bel, T *_pp, size_t _siz) : bel(_bel), pp(_pp), siz(_siz) {}
 
+            friend int operator-(const iterator &it1, const iterator &it2) {
+                return (int) (it1.pp - it2.pp);
+            }
+
             iterator operator+(const int &n) const {
                 /**
                  * return a new iterator which pointer n-next elements

@@ -6,8 +6,6 @@ void file() {
     freopen("../testdata/basic_1/1.in", "r", stdin);
 }
 
-hnyls2002::System sys;
-
 void test() {
     srand((unsigned) time(NULL));
     sjtu::map<std::pair<hnyls2002::fstr<100>, int>, int> mp;
@@ -63,14 +61,18 @@ void test4() {
         std::cout << (a + i).to_string() << std::endl;
 }
 
+hnyls2002::System sys;
+
 int main() {
-    /*file();
+    file();
+    freopen("../testdata/basic_1/my.in", "r", stdin);
+    freopen("../testdata/basic_1/my.out", "w", stdout);
     std::string str;
     while (getline(std::cin, str)) {
-        auto s = hnyls2002::splitCN(str);
-        for (auto x: s)
-            std::cout << x << std::endl;
-    }*/
-    test4();
+        std::cerr << str << std::endl;
+        auto res = sys.Opt(str);
+        for (auto it: res)
+            std::cout << it << std::endl;
+    }
     return 0;
 }

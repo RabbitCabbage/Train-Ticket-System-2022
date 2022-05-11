@@ -10,7 +10,7 @@ namespace hnyls2002 {
     const int argMax = 26;
 
     struct CmdType {
-        int FuncID, Time;
+        int FuncID, TimeStamp;
         std::string cmd_arg[argMax];
 
         std::string &operator[](const char &c) {
@@ -45,7 +45,7 @@ namespace hnyls2002 {
     CmdType Parser(const std::string &str) {
         CmdType ret;
         auto res = split(str);
-        ret.Time = std::stoi(res[0].substr(1, res[0].size() - 2));
+        ret.TimeStamp = std::stoi(res[0].substr(1, res[0].size() - 2));
         for (int i = 0; i < CmdMax; ++i)
             if (res[1] == CmdName[i]) {
                 ret.FuncID = i;

@@ -7,7 +7,9 @@
 #include "../lib/tools.hpp"
 #include "Commander.hpp"
 
-#define bptree sjtu::map
+#include<map>
+
+#define bptree std::map
 
 namespace hnyls2002 {
 
@@ -35,12 +37,13 @@ namespace hnyls2002 {
         struct TrainInfo {
             fstr<TrainIDMax> TrainID;
             fstr<StNameMax> StName[StNumMax];
-            int StNum, SeatNum, Prices[StNumMax];// 用前缀和来存票价
+            int StNum, SeatNum, Prices[StNumMax];// 用前缀和来存票价 i 到第i站的票价
             int TravelTimes[StNumMax], StopOverTimes[StNumMax];
             Time StartTime;
             std::pair<Date, Date> SaleDate;
             char Type;
             bool is_released;
+            int TimeStamp;// 记录发布这个火车的时间戳，相当于一个TrainID
         };
 
         bptree<fstr<TrainIDMax>, TrainInfo> TrainDb;
@@ -51,22 +54,28 @@ namespace hnyls2002 {
 
         bptree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo> DayTrainDb;
 
+        // 对于每一个车站，存储有多少辆火车经过它 {站名，序号} 序号采用发布这个火车时的时间戳
+        bptree<std::pair<fstr<StNameMax>, int>, fstr<TrainIDMax>> TrainSet;
+
 
         //reference to stackoverflow
         //https://stackoverflow.com/questions/26331628/reference-to-non-static-member-function-must-be-called
-        ret_type (System::* func[100])(const CmdType &) ={&System::add_user, &System::login, &System::logout,
-                                                          &System::query_profile, &System::modify_profile,
-                                                          &System::add_train, &System::delete_train,
-                                                          &System::release_train, &System::query_train,
-                                                          &System::query_ticket, &System::query_transfer,
-                                                          &System::buy_ticket, &System::query_order,
-                                                          &System::refund_ticket, &System::rollback,
-                                                          &System::clean, &System::exit};
+        ret_type (System::* func[17])(const CmdType &) ={&System::add_user, &System::login, &System::logout,
+                                                         &System::query_profile, &System::modify_profile,
+                                                         &System::add_train, &System::delete_train,
+                                                         &System::release_train, &System::query_train,
+                                                         &System::query_ticket, &System::query_transfer,
+                                                         &System::buy_ticket, &System::query_order,
+                                                         &System::refund_ticket, &System::rollback,
+                                                         &System::clean, &System::exit};
 
+    public:
         ret_type Opt(const std::string &str) {
             CmdType a = Parser(str);
-            return ret_type();
+            return (this->*func[a.FuncID])(a);
         }
+
+    private:
 
         ret_type add_user(const CmdType &arg) {
 
@@ -111,10 +120,12 @@ namespace hnyls2002 {
             if (!JudgeUserQM(arg))return ret_value(-1);
             UserInfo User = UserDb[arg['u']];
             ret_type ret;
-            ret.push_back(User.UserName.to_string());
-            ret.push_back(User.Name.to_string());
-            ret.push_back(User.maillAdd.to_string());
-            ret.push_back(User.privilege.to_string());// 注意一下，这里可能会返回":"。
+            std::string tmp;
+            tmp += User.UserName.to_string() + " ";
+            tmp += User.Name.to_string() + " ";
+            tmp += User.maillAdd.to_string() + " ";
+            tmp += User.privilege.to_string();// 注意一下，这里可能会返回":"。
+            ret.push_back(tmp);
             return ret;
         }
 
@@ -175,8 +186,14 @@ namespace hnyls2002 {
 
         ret_type release_train(const CmdType &arg) {// 先不把DayTrain加进去，有购票的时候再加？
             if (TrainDb.find(arg['i']) == TrainDb.end())return ret_value(-1);// 没有找到这辆车
-            if (TrainDb[arg['i']].is_released)return ret_value(-1);// 已经发布了
-            TrainDb[arg['i']].is_released = 1;
+            auto &tmp = TrainDb[arg['i']];// 引用的形式，后面可以直接修改tmp
+            if (tmp.is_released)return ret_value(-1);// 已经发布了
+            tmp.is_released = true;
+            tmp.TimeStamp = arg.TimeStamp;
+
+            // 火车发布了，就可以买票了，所以把这列车的时间戳加入TrainSet
+            for (int i = 1; i <= tmp.StNum; ++i)
+                TrainSet[{tmp.StName[i], tmp.TimeStamp}] = tmp.TrainID;
             return ret_value(0);
         }
 
@@ -209,10 +226,90 @@ namespace hnyls2002 {
                 tmp += " " + std::to_string(Train.Prices[i]) + " ";
                 if (is_in)tmp += std::to_string(DayTrain.RemainSeats[i]);
                 else tmp += std::to_string(Train.StNum);
+                ret.push_back(tmp);
             }
+
+            return ret;
+        }
+
+        struct TicketType {
+            fstr<TrainIDMax> TrainID;
+            int TravelTime, Cost, RemainSeat;
+            Time Leaving, Arriving;
+        };
+
+        static bool cmp_time(const TicketType &t1, const TicketType &t2) {
+            return t1.TravelTime < t2.TravelTime;
+        }
+
+        static bool cmp_cost(const TicketType &t1, const TicketType &t2) {
+            return t1.Cost < t2.Cost;
         }
 
         ret_type query_ticket(const CmdType &arg) {
+            auto it = TrainSet.lower_bound({arg['s'], 0});
+            sjtu::vector<TicketType> tickets;
+            for (; it != TrainSet.end() && it->first.first == arg['s']; ++it) {// 这里需要访问经过起点站的所有车次
+                auto tmp = TrainDb[it->second];
+                Time Basic_Time(6, 1, tmp.StartTime.hr, tmp.StartTime.mi);// 基准时间设定为儿童节
+                Time Leaving_time = Basic_Time;// 计算到购票起点站的发车时间
+                bool direction_flag = true, find_destination = false;
+                int pl = 1;
+                for (; pl <= tmp.StNum; ++pl) {
+                    if (tmp.StName[pl] == arg['t']) {// 先有终点站，方向就不对了
+                        direction_flag = false;
+                        break;
+                    }
+                    if (pl > 1 && pl < tmp.StNum)
+                        Leaving_time += tmp.TravelTimes[pl - 1] + tmp.StopOverTimes[pl - 1];// 计算出发时间
+                    if (tmp.StName[pl] == arg['s']) { break; }
+                }
+                if (!direction_flag)continue;
+                Time Arriving_time = Leaving_time;
+                int pr = pl + 1;
+                for (++pr; pr <= tmp.StNum; ++pr) {// 计算到达时间
+                    if (pr > 1)Arriving_time += tmp.TravelTimes[pr - 1];
+                    if (tmp.StName[pr] == arg['t']) {
+                        find_destination = true;
+                        break;
+                    }
+                    if (pr > 1 && pr < tmp.StNum)Arriving_time += tmp.StopOverTimes[pr - 1];
+                }
+                if (!find_destination)continue;
+                // 计算时间
+                int IntervalDays = Date(arg['d']) - Date(Basic_Time);
+                Basic_Time = Basic_Time.DayStep(IntervalDays);
+                Leaving_time = Leaving_time.DayStep(IntervalDays);
+                Arriving_time = Arriving_time.DayStep(IntervalDays);
+                // 统计剩余座位
+                int RemainSeat = tmp.SeatNum;
+                Date StartDate = Date(Basic_Time);
+                if (DayTrainDb.find({tmp.TrainID, StartDate}) != DayTrainDb.end()) {// 如果DayTrain没有实例化，不需要改动RemainSeat
+                    auto tmp1 = DayTrainDb[{tmp.TrainID, StartDate}];
+                    for (int i = pl + 1; i <= pr; ++i)
+                        RemainSeat = std::min(RemainSeat, tmp1.RemainSeats[i]);
+                }
+                TicketType tik;
+                tik.TrainID = tmp.TrainID;
+                tik.TravelTime = Arriving_time - Leaving_time;
+                tik.Cost = tmp.Prices[pr] - tmp.Prices[pl];
+                tik.RemainSeat = RemainSeat;
+                tik.Leaving = Leaving_time;
+                tik.Arriving = Arriving_time;
+                tickets.push_back(tik);
+            }
+            auto cmp = arg['p'] == "cost" ? &System::cmp_cost : &System::cmp_time;
+            sort(tickets.begin(), tickets.end(), cmp);
+            ret_type ret;
+            ret.push_back(std::to_string(tickets.size()));
+            for (auto it: tickets) {
+                std::string line;
+                line += it.TrainID.to_string() + " " + arg['s'] + " " + it.Leaving.to_string() + " -> ";
+                line += arg['t'] + " " + it.Arriving.to_string() + " ";
+                line += std::to_string(it.Cost) + " " + std::to_string(it.RemainSeat);
+                ret.push_back(line);
+            }
+            return ret;
         }
 
         ret_type query_transfer(const CmdType &arg) {
