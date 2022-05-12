@@ -22,7 +22,7 @@ namespace hnyls2002 {
         }
     };
 
-    const std::string CmdName[CmdMax] = {"add_usr", "login", "logout", "query_profile",
+    const std::string CmdName[CmdMax] = {"add_user", "login", "logout", "query_profile",
                                          "modify_profile", "add_train", "delete_train",
                                          "release_train", "query_train", "query_ticket",
                                          "query_transfer", "buy_ticket", "query_order",

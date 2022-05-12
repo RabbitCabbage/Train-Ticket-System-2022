@@ -96,6 +96,8 @@ namespace hnyls2002 {
             return std::string(s, siz);
         }
 
+        int to_int() { return std::stoi(to_string()); }
+
         friend std::ostream &operator<<(std::ostream &os, fstr<LEN> value) {
             os << value.s;
             return os;

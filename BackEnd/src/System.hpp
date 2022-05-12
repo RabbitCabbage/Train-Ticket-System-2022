@@ -26,8 +26,8 @@ namespace hnyls2002 {
             fstr<UserNameMax> UserName;
             fstr<PasswdMax> Passwd;
             fstr<NameMax> Name;
-            fstr<mailAddMax> maillAdd;
-            fstr<privilegeMax> privilege;// 用户的权限直接用字符串的形式存储。第一个超级用户的权限为'9'+ 1 = ':'
+            fstr<mailAddMax> mailAdd;
+            fstr<privilegeMax> privilege;
         };
 
         bptree<fstr<UserNameMax>, UserInfo> UserDb;
@@ -78,20 +78,15 @@ namespace hnyls2002 {
     private:
 
         ret_type add_user(const CmdType &arg) {
-
             if (!UserDb.empty()) { // 不是第一次创建用户时
                 if (Logged.find(arg['c']) == Logged.end())return ret_value(-1);// 没有登录
-                if (UserDb[arg['c']].privilege.to_string() <= arg['g'])return ret_value(-1);// 权限不满足要求
+                if (UserDb[arg['c']].privilege.to_int() <= std::stoi(arg['g']))return ret_value(-1);// 权限不满足要求
                 if (UserDb.find(arg['u']) != UserDb.end())return ret_value(-1);// 已经存在用户u
             }
-
             UserInfo User;
-
-            User.UserName = arg['u'], User.Passwd = arg['p'], User.Name = arg['n'], User.maillAdd = arg['m'];
-            User.privilege = UserDb.empty() ? ":" : arg['g'];
-
+            User.UserName = arg['u'], User.Passwd = arg['p'], User.Name = arg['n'];
+            User.mailAdd = arg['m'], User.privilege = arg['g'];
             UserDb[arg['u']] = User;
-
             return ret_value(0);
         }
 
@@ -112,7 +107,8 @@ namespace hnyls2002 {
         bool JudgeUserQM(const CmdType &arg) {// 用户c要查询（修改）用户u的时候
             if (Logged.find(arg['c']) == Logged.end())return false;// 没有登录
             if (UserDb.find(arg['u']) == UserDb.end())return false;// 没有用户u
-            if (UserDb[arg['c']].privilege < UserDb[arg['u']].privilege)return false;// 不满足权限要求
+            if (arg['u'] == arg['c'])return true;// 用户名相同，不需要判断权限（坑！！！）
+            if (UserDb[arg['c']].privilege.to_int() <= UserDb[arg['u']].privilege.to_int())return false;// 不满足权限要求
             return true;
         }
 
@@ -121,24 +117,27 @@ namespace hnyls2002 {
             UserInfo User = UserDb[arg['u']];
             ret_type ret;
             std::string tmp;
-            tmp += User.UserName.to_string() + " ";
-            tmp += User.Name.to_string() + " ";
-            tmp += User.maillAdd.to_string() + " ";
-            tmp += User.privilege.to_string();// 注意一下，这里可能会返回":"。
+            tmp += User.UserName.to_string() + " " + User.Name.to_string() + " ";
+            tmp += User.mailAdd.to_string() + " " + User.privilege.to_string();
             ret.push_back(tmp);
             return ret;
         }
 
         ret_type modify_profile(const CmdType &arg) {
             if (!JudgeUserQM(arg))return ret_value(-1);
-            if (!arg['g'].empty() && UserDb[arg['c']].privilege.to_string() <= arg['g'])return ret_value(-1);
-            UserInfo User = UserDb[arg['u']];
+            if (!arg['g'].empty() && UserDb[arg['c']].privilege.to_int() <= std::stoi(arg['g']))return ret_value(-1);
+            UserInfo User = UserDb[arg['u']];// 最好不用引用传递，引用似乎不能在外存上实现
             if (!arg['p'].empty())User.Passwd = arg['p'];
             if (!arg['n'].empty())User.Name = arg['n'];
-            if (!arg['m'].empty())User.maillAdd = arg['m'];
+            if (!arg['m'].empty())User.mailAdd = arg['m'];
             if (!arg['g'].empty())User.privilege = arg['g'];
             UserDb[arg['u']] = User;
-            return query_profile(arg);// 直接利用上一个函数，可能常数会比较大？
+            ret_type ret;
+            std::string tmp;
+            tmp += User.UserName.to_string() + " " + User.Name.to_string() + " ";
+            tmp += User.mailAdd.to_string() + " " + User.privilege.to_string();
+            ret.push_back(tmp);
+            return ret;
         }
 
         ret_type add_train(const CmdType &arg) {
@@ -186,14 +185,15 @@ namespace hnyls2002 {
 
         ret_type release_train(const CmdType &arg) {// 先不把DayTrain加进去，有购票的时候再加？
             if (TrainDb.find(arg['i']) == TrainDb.end())return ret_value(-1);// 没有找到这辆车
-            auto &tmp = TrainDb[arg['i']];// 引用的形式，后面可以直接修改tmp
-            if (tmp.is_released)return ret_value(-1);// 已经发布了
-            tmp.is_released = true;
-            tmp.TimeStamp = arg.TimeStamp;
+            auto Train = TrainDb[arg['i']]; // 不采用引用的形式，不便于B+树的操作
+            if (Train.is_released)return ret_value(-1);// 已经发布了
+            Train.is_released = true;
+            Train.TimeStamp = arg.TimeStamp;
+            TrainDb[arg['i']] = Train;
 
             // 火车发布了，就可以买票了，所以把这列车的时间戳加入TrainSet
-            for (int i = 1; i <= tmp.StNum; ++i)
-                TrainSet[{tmp.StName[i], tmp.TimeStamp}] = tmp.TrainID;
+            for (int i = 1; i <= Train.StNum; ++i)
+                TrainSet[{Train.StName[i], Train.TimeStamp}] = Train.TrainID;
             return ret_value(0);
         }
 
@@ -209,11 +209,8 @@ namespace hnyls2002 {
             if (is_in) DayTrain = DayTrainDb[{arg['i'], arg['d']}];
 
             ret_type ret;
-            ret.push_back(arg['i']);
-            ret.push_back(std::string(1, Train.Type));
-
+            ret.push_back(arg['i'] + std::string(1, Train.Type));
             Time Timeline(arg['d'], Train.StartTime);
-
             for (int i = 1; i <= Train.StNum; ++i) {
                 std::string tmp;
                 tmp += Train.StName[i].to_string() + " ";
@@ -228,7 +225,6 @@ namespace hnyls2002 {
                 else tmp += std::to_string(Train.StNum);
                 ret.push_back(tmp);
             }
-
             return ret;
         }
 
@@ -250,49 +246,51 @@ namespace hnyls2002 {
             auto it = TrainSet.lower_bound({arg['s'], 0});
             sjtu::vector<TicketType> tickets;
             for (; it != TrainSet.end() && it->first.first == arg['s']; ++it) {// 这里需要访问经过起点站的所有车次
-                auto tmp = TrainDb[it->second];
-                Time Basic_Time(6, 1, tmp.StartTime.hr, tmp.StartTime.mi);// 基准时间设定为儿童节
+                auto Train = TrainDb[it->second];
+                Time Basic_Time(6, 1, Train.StartTime.hr, Train.StartTime.mi);// 基准时间设定为儿童节
                 Time Leaving_time = Basic_Time;// 计算到购票起点站的发车时间
                 bool direction_flag = true, find_destination = false;
                 int pl = 1;
-                for (; pl <= tmp.StNum; ++pl) {
-                    if (tmp.StName[pl] == arg['t']) {// 先有终点站，方向就不对了
+                for (; pl <= Train.StNum; ++pl) {
+                    if (Train.StName[pl] == arg['t']) {// 先有终点站，方向就不对了
                         direction_flag = false;
                         break;
                     }
-                    if (pl > 1 && pl < tmp.StNum)
-                        Leaving_time += tmp.TravelTimes[pl - 1] + tmp.StopOverTimes[pl - 1];// 计算出发时间
-                    if (tmp.StName[pl] == arg['s']) { break; }
+                    if (pl > 1 && pl < Train.StNum)
+                        Leaving_time += Train.TravelTimes[pl - 1] + Train.StopOverTimes[pl - 1];// 计算出发时间
+                    if (Train.StName[pl] == arg['s']) { break; }
                 }
                 if (!direction_flag)continue;
-                Time Arriving_time = Leaving_time;
+                Time Arriving_time = Leaving_time;// 到达目的地的时间
                 int pr = pl + 1;
-                for (++pr; pr <= tmp.StNum; ++pr) {// 计算到达时间
-                    if (pr > 1)Arriving_time += tmp.TravelTimes[pr - 1];
-                    if (tmp.StName[pr] == arg['t']) {
+                for (++pr; pr <= Train.StNum; ++pr) {// 计算到达时间
+                    if (pr > 1)Arriving_time += Train.TravelTimes[pr - 1];
+                    if (Train.StName[pr] == arg['t']) {
                         find_destination = true;
                         break;
                     }
-                    if (pr > 1 && pr < tmp.StNum)Arriving_time += tmp.StopOverTimes[pr - 1];
+                    if (pr > 1 && pr < Train.StNum)Arriving_time += Train.StopOverTimes[pr - 1];
                 }
                 if (!find_destination)continue;
                 // 计算时间
-                int IntervalDays = Date(arg['d']) - Date(Basic_Time);
+                int IntervalDays = Date(arg['d']) - Date(Leaving_time);
                 Basic_Time = Basic_Time.DayStep(IntervalDays);
                 Leaving_time = Leaving_time.DayStep(IntervalDays);
                 Arriving_time = Arriving_time.DayStep(IntervalDays);
+                // 注意一下车票的售卖区间
+                if (Date(Basic_Time) < Train.SaleDate.first || Train.SaleDate.second < Date(Basic_Time))continue;
                 // 统计剩余座位
-                int RemainSeat = tmp.SeatNum;
+                int RemainSeat = Train.SeatNum;
                 Date StartDate = Date(Basic_Time);
-                if (DayTrainDb.find({tmp.TrainID, StartDate}) != DayTrainDb.end()) {// 如果DayTrain没有实例化，不需要改动RemainSeat
-                    auto tmp1 = DayTrainDb[{tmp.TrainID, StartDate}];
+                if (DayTrainDb.find({Train.TrainID, StartDate}) != DayTrainDb.end()) {// 如果DayTrain没有实例化，不需要改动RemainSeat
+                    auto DayTrain = DayTrainDb[{Train.TrainID, StartDate}];
                     for (int i = pl + 1; i <= pr; ++i)
-                        RemainSeat = std::min(RemainSeat, tmp1.RemainSeats[i]);
+                        RemainSeat = std::min(RemainSeat, DayTrain.RemainSeats[i]);
                 }
                 TicketType tik;
-                tik.TrainID = tmp.TrainID;
+                tik.TrainID = Train.TrainID;
                 tik.TravelTime = Arriving_time - Leaving_time;
-                tik.Cost = tmp.Prices[pr] - tmp.Prices[pl];
+                tik.Cost = Train.Prices[pr] - Train.Prices[pl];
                 tik.RemainSeat = RemainSeat;
                 tik.Leaving = Leaving_time;
                 tik.Arriving = Arriving_time;
@@ -331,6 +329,7 @@ namespace hnyls2002 {
         }
 
         ret_type exit(const CmdType &arg) {
+            return ret_type{"bye"};
         }
 
 #undef ret_value

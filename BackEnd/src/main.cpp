@@ -65,8 +65,8 @@ hnyls2002::System sys;
 
 int main() {
     file();
-    freopen("../testdata/basic_1/my.in", "r", stdin);
-    freopen("../testdata/basic_1/my.out", "w", stdout);
+    freopen("../testdata/basic_2/my.in", "r", stdin);
+    freopen("../testdata/basic_2/my.out", "w", stdout);
     std::string str;
     while (getline(std::cin, str)) {
         std::cerr << str << std::endl;
