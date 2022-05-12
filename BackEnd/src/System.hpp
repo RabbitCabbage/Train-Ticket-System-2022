@@ -50,11 +50,31 @@ namespace hnyls2002 {
 
         struct DayTrainInfo {
             int RemainSeats[StNumMax];// 第1项为SeatNum，以此类推
+            int Get_Remain(TrainInfo &Train, const std::string &s, const std::string &t) {
+                int Min = 0x3f3f3f3f;
+                bool flag = false;
+                for (int i = 1; i <= Train.StNum; ++i) {
+                    if (flag)Min = std::min(Min, RemainSeats[i]);
+                    if (Train.StName[i] == s)flag = true;
+                    if (Train.StName[i] == t)break;
+                }
+                return Min;
+            }
+
+            void Modify(TrainInfo &Train, const std::string &s, const std::string &t, int x) {
+                bool flag = false;
+                for (int i = 1; i <= Train.StNum; ++i) {
+                    if (flag)RemainSeats[i] -= x;
+                    if (Train.StName[i] == s)flag = true;
+                    if (Train.StName[i] == t)break;
+                }
+            }
         };
 
         bptree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo> DayTrainDb;
 
         // 对于每一个车站，存储有多少辆火车经过它 {站名，序号} 序号采用发布这个火车时的时间戳
+        // TrainSet 里面可以用来存这是第几个站，会好很多!!!
         bptree<std::pair<fstr<StNameMax>, int>, fstr<TrainIDMax>> TrainSet;
 
 
@@ -222,7 +242,7 @@ namespace hnyls2002 {
                 tmp += i == Train.StNum ? "xx-xx xx:xx" : Timeline.to_string();
                 tmp += " " + std::to_string(Train.Prices[i]) + " ";
                 if (is_in)tmp += std::to_string(DayTrain.RemainSeats[i]);
-                else tmp += std::to_string(Train.StNum);
+                else tmp += std::to_string(Train.SeatNum);
                 ret.push_back(tmp);
             }
             return ret;
@@ -261,6 +281,9 @@ namespace hnyls2002 {
             explicit TicketRequest(TrainInfo &train, const fstr<StNameMax> &from, const std::string &to,
                                    const Date &day) : Train(train), From(from), To(to), Day(day) {}
         };
+
+        // 改 : 一个专门check方向和目的地，一个用来计算Arriving 和 Leaving !!!
+        // Prices 和ticket都可以分开写。!!!
 
         std::pair<int, TicketType> Get_Ticket(const TicketRequest &Info) {
             TicketType ret;
@@ -384,6 +407,7 @@ namespace hnyls2002 {
                         for (auto d = Arrival;; d += 1) {
                             auto tik2 = Get_Ticket(TicketRequest(T, trans, arg['t'], d));
                             if (tik2.first == 0) {// 0 才是满足条件的 (-3 日期超出) (-4 没有票了)
+                                // 这里记得还要判断一下是否大于上一次的Arriving Time!!!
                                 if (!flag) tik = {tik1.second, tik2.second, trans.to_string()}, flag = true;
                                 else tik = std::min(tik, {tik1.second, tik2.second}, cmp);
                                 break;
@@ -401,6 +425,10 @@ namespace hnyls2002 {
         }
 
         ret_type buy_ticket(const CmdType &arg) {
+            if (Logged.find(arg['u']) == Logged.end())return ret_value(-1);// 没有登录
+            if (TrainDb.find(arg['i']) == TrainDb.end())return ret_value(-1);// 没有这列车
+            auto Train = TrainDb[arg['i']];
+            if (!Train.is_released)return ret_value(-1);
         }
 
         ret_type query_order(const CmdType &arg) {
