@@ -102,6 +102,8 @@ namespace hnyls2002 {
             os << value.s;
             return os;
         }
+
+        bool empty() const { return siz != 0; }
     };
 
     sjtu::vector<std::string> split_cmd(const std::string &str, const char &ch) {

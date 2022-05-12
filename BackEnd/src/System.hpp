@@ -232,14 +232,89 @@ namespace hnyls2002 {
             fstr<TrainIDMax> TrainID;
             int TravelTime, Cost, RemainSeat;
             Time Leaving, Arriving;
+
+            std::string to_string(const std::string &s, const std::string &t) {
+                std::string ret;
+                ret += TrainID.to_string() + " " + s + " " + Leaving.to_string() + " -> ";
+                ret += t + " " + Arriving.to_string() + " ";
+                ret += std::to_string(Cost) + " " + std::to_string(RemainSeat);
+                return ret;
+            }
         };
 
-        static bool cmp_time(const TicketType &t1, const TicketType &t2) {
+        static bool cmp_ticket_time(const TicketType &t1, const TicketType &t2) {
             return t1.TravelTime < t2.TravelTime;
         }
 
-        static bool cmp_cost(const TicketType &t1, const TicketType &t2) {
+        static bool cmp_ticket_cost(const TicketType &t1, const TicketType &t2) {
             return t1.Cost < t2.Cost;
+        }
+
+        struct TicketRequest {
+            TrainInfo &Train;// 把列车信息设置成引用，不用查找了。
+            fstr<StNameMax> From, To;
+            Date Day;
+
+            explicit TicketRequest(TrainInfo &train, const std::string &from, const std::string &to,
+                                   const std::string &day) : Train(train), From(from), To(to), Day(day) {}
+
+            explicit TicketRequest(TrainInfo &train, const fstr<StNameMax> &from, const std::string &to,
+                                   const Date &day) : Train(train), From(from), To(to), Day(day) {}
+        };
+
+        std::pair<int, TicketType> Get_Ticket(const TicketRequest &Info) {
+            TicketType ret;
+            auto Train = Info.Train;
+            Time Basic_Time(6, 1, Train.StartTime.hr, Train.StartTime.mi);// 基准时间设定为儿童节
+            Time Leaving_time = Basic_Time;// 计算到购票起点站的发车时间
+            bool direction_flag = true, find_destination = false;
+            int pl = 1;
+            for (; pl <= Train.StNum; ++pl) {
+                if (Train.StName[pl] == Info.To) {// 先有终点站，方向就不对了
+                    direction_flag = false;
+                    break;
+                }
+                if (pl > 1 && pl < Train.StNum)
+                    Leaving_time += Train.TravelTimes[pl - 1] + Train.StopOverTimes[pl - 1];// 计算出发时间
+                if (Train.StName[pl] == Info.From) { break; }
+            }
+            if (!direction_flag)return {-1, ret};// 方向不对
+            Time Arriving_time = Leaving_time;// 到达目的地的时间
+            int pr = pl + 1;
+            for (++pr; pr <= Train.StNum; ++pr) {// 计算到达时间
+                if (pr > 1)Arriving_time += Train.TravelTimes[pr - 1];
+                if (Train.StName[pr] == Info.To) {
+                    find_destination = true;
+                    break;
+                }
+                if (pr > 1 && pr < Train.StNum)Arriving_time += Train.StopOverTimes[pr - 1];
+            }
+            if (!find_destination)return {-2, ret};// 找不到终点站
+            // 计算时间
+            int IntervalDays = Date(Info.Day) - Date(Leaving_time);
+            Basic_Time = Basic_Time.DayStep(IntervalDays);
+            Leaving_time = Leaving_time.DayStep(IntervalDays);
+            Arriving_time = Arriving_time.DayStep(IntervalDays);
+            // 注意一下车票的售卖区间
+            if (Date(Basic_Time) < Train.SaleDate.first || Train.SaleDate.second < Date(Basic_Time))
+                return {-3, ret};// 时间不对。
+            // 统计剩余座位
+            int RemainSeat = Train.SeatNum;
+            Date StartDate = Date(Basic_Time);
+            if (DayTrainDb.find({Train.TrainID, StartDate}) != DayTrainDb.end()) {
+                // 如果DayTrain没有实例化，不需要改动RemainSeat
+                auto DayTrain = DayTrainDb[{Train.TrainID, StartDate}];
+                for (int i = pl + 1; i <= pr; ++i)
+                    RemainSeat = std::min(RemainSeat, DayTrain.RemainSeats[i]);
+            }
+            if (RemainSeat == 0)return {-4, ret};// 没有票了
+            ret.TrainID = Train.TrainID;
+            ret.TravelTime = Arriving_time - Leaving_time;
+            ret.Cost = Train.Prices[pr] - Train.Prices[pl];
+            ret.RemainSeat = RemainSeat;
+            ret.Leaving = Leaving_time;
+            ret.Arriving = Arriving_time;
+            return {0, ret};
         }
 
         ret_type query_ticket(const CmdType &arg) {
@@ -247,70 +322,82 @@ namespace hnyls2002 {
             sjtu::vector<TicketType> tickets;
             for (; it != TrainSet.end() && it->first.first == arg['s']; ++it) {// 这里需要访问经过起点站的所有车次
                 auto Train = TrainDb[it->second];
-                Time Basic_Time(6, 1, Train.StartTime.hr, Train.StartTime.mi);// 基准时间设定为儿童节
-                Time Leaving_time = Basic_Time;// 计算到购票起点站的发车时间
-                bool direction_flag = true, find_destination = false;
-                int pl = 1;
-                for (; pl <= Train.StNum; ++pl) {
-                    if (Train.StName[pl] == arg['t']) {// 先有终点站，方向就不对了
-                        direction_flag = false;
-                        break;
-                    }
-                    if (pl > 1 && pl < Train.StNum)
-                        Leaving_time += Train.TravelTimes[pl - 1] + Train.StopOverTimes[pl - 1];// 计算出发时间
-                    if (Train.StName[pl] == arg['s']) { break; }
-                }
-                if (!direction_flag)continue;
-                Time Arriving_time = Leaving_time;// 到达目的地的时间
-                int pr = pl + 1;
-                for (++pr; pr <= Train.StNum; ++pr) {// 计算到达时间
-                    if (pr > 1)Arriving_time += Train.TravelTimes[pr - 1];
-                    if (Train.StName[pr] == arg['t']) {
-                        find_destination = true;
-                        break;
-                    }
-                    if (pr > 1 && pr < Train.StNum)Arriving_time += Train.StopOverTimes[pr - 1];
-                }
-                if (!find_destination)continue;
-                // 计算时间
-                int IntervalDays = Date(arg['d']) - Date(Leaving_time);
-                Basic_Time = Basic_Time.DayStep(IntervalDays);
-                Leaving_time = Leaving_time.DayStep(IntervalDays);
-                Arriving_time = Arriving_time.DayStep(IntervalDays);
-                // 注意一下车票的售卖区间
-                if (Date(Basic_Time) < Train.SaleDate.first || Train.SaleDate.second < Date(Basic_Time))continue;
-                // 统计剩余座位
-                int RemainSeat = Train.SeatNum;
-                Date StartDate = Date(Basic_Time);
-                if (DayTrainDb.find({Train.TrainID, StartDate}) != DayTrainDb.end()) {// 如果DayTrain没有实例化，不需要改动RemainSeat
-                    auto DayTrain = DayTrainDb[{Train.TrainID, StartDate}];
-                    for (int i = pl + 1; i <= pr; ++i)
-                        RemainSeat = std::min(RemainSeat, DayTrain.RemainSeats[i]);
-                }
-                TicketType tik;
-                tik.TrainID = Train.TrainID;
-                tik.TravelTime = Arriving_time - Leaving_time;
-                tik.Cost = Train.Prices[pr] - Train.Prices[pl];
-                tik.RemainSeat = RemainSeat;
-                tik.Leaving = Leaving_time;
-                tik.Arriving = Arriving_time;
-                tickets.push_back(tik);
+                TicketRequest Info(Train, arg['s'], arg['t'], arg['d']);
+                auto tik = Get_Ticket(Info);
+                if (tik.first == 0)tickets.push_back(tik.second);
             }
-            auto cmp = arg['p'] == "cost" ? &System::cmp_cost : &System::cmp_time;
+            auto cmp = arg['p'] == "cost" ? &System::cmp_ticket_cost : &System::cmp_ticket_time;
             sort(tickets.begin(), tickets.end(), cmp);
             ret_type ret;
             ret.push_back(std::to_string(tickets.size()));
-            for (auto it: tickets) {
-                std::string line;
-                line += it.TrainID.to_string() + " " + arg['s'] + " " + it.Leaving.to_string() + " -> ";
-                line += arg['t'] + " " + it.Arriving.to_string() + " ";
-                line += std::to_string(it.Cost) + " " + std::to_string(it.RemainSeat);
-                ret.push_back(line);
-            }
+            for (auto tik: tickets) ret.push_back(tik.to_string(arg['s'], arg['t']));
             return ret;
         }
 
+        struct TransType {
+            TicketType tik1, tik2;
+            std::string trans;
+
+            int get_time() const { return tik2.Arriving - tik1.Leaving; }
+
+            int get_time1() const { return tik1.Arriving - tik1.Leaving; }
+
+            int get_cost() const { return tik1.Cost + tik2.Cost; }
+        };
+
+        static bool cmp_trans_time(const TransType &t1, const TransType &t2) {
+            if (t1.get_time() == t2.get_time())return t1.get_time1() < t2.get_time1();
+            return t1.get_time() < t2.get_time();
+        }
+
+        static bool cmp_trans_cost(const TransType &t1, const TransType &t2) {
+            if (t1.get_cost() == t2.get_cost())return t1.get_time1() < t2.get_time1();
+            return t1.get_cost() < t2.get_cost();
+        }
+
         ret_type query_transfer(const CmdType &arg) {
+            auto it_s = TrainSet.lower_bound({arg['s'], 0});
+            auto it_t = TrainSet.lower_bound({arg['t'], 0});
+            sjtu::vector<TrainInfo> lis_s, lis_t;
+            for (; it_s != TrainSet.end() && it_s->first.first == arg['s']; ++it_s)
+                lis_s.push_back(TrainDb[it_s->second]);
+            for (; it_t != TrainSet.end() && it_t->first.first == arg['s']; ++it_t)
+                lis_t.push_back(TrainDb[it_t->second]);
+            // 得到了两个list
+            TransType tik;
+            bool flag = false;
+            auto cmp = arg['p'] == "cost" ? &System::cmp_trans_cost : &System::cmp_trans_time;
+            for (auto &S: lis_s) {// 起点车次 S
+                sjtu::linked_hashmap<std::string, bool> mp;
+                for (int i = S.StNum; i >= 1; ++i) {// map 中存 -s 后面所有可以到的站 (-s) -> (-trans)
+                    if (S.StName[i] == arg['s'])break;
+                    mp[S.StName[i].to_string()] = true;
+                }
+                for (auto &T: lis_t) {// 终点车次 T
+                    for (int i = 1; i <= T.StNum; ++i) {// 中转站，要求 -t 前面的车站 (-trans) -> (-t)
+                        fstr<StNameMax> trans = T.StName[i];
+                        if (trans == arg['t'])break;
+                        if (mp.find(trans.to_string()) == mp.end())continue;// 没有这个站
+                        auto tik1 = Get_Ticket(TicketRequest(S, arg['s'], trans.to_string(), arg['d']));
+                        if (tik1.first < 0) continue;// 没有票了
+                        Date Arrival = Date(tik1.second.Arriving);// 注意这里不仅仅需要满足日期，还要满足时间
+                        for (auto d = Arrival;; d += 1) {
+                            auto tik2 = Get_Ticket(TicketRequest(T, trans, arg['t'], d));
+                            if (tik2.first == 0) {// 0 才是满足条件的 (-3 日期超出) (-4 没有票了)
+                                if (!flag) tik = {tik1.second, tik2.second, trans.to_string()}, flag = true;
+                                else tik = std::min(tik, {tik1.second, tik2.second}, cmp);
+                                break;
+                            }
+                            if (tik2.first == -3)break;
+                        }
+                    }
+                }
+            }
+            if (!flag)return ret_value(0);
+            ret_type ret;
+            ret.push_back(tik.tik1.to_string(arg['s'], tik.trans));
+            ret.push_back(tik.tik2.to_string(tik.trans, arg['t']));
+            return ret;
         }
 
         ret_type buy_ticket(const CmdType &arg) {
