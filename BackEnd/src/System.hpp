@@ -29,7 +29,7 @@ namespace hnyls2002 {
             fstr<NameMax> Name;
             fstr<mailAddMax> mailAdd;
             fstr<privilegeMax> privilege;
-            int OrderNum;
+            int OrderNum{};
 
             std::string to_string() {
                 std::string ret;
@@ -46,20 +46,20 @@ namespace hnyls2002 {
         struct TrainInfo {
             fstr<TrainIDMax> TrainID;
             fstr<StNameMax> StName[StNumMax];
-            int StNum, SeatNum, Prices[StNumMax];// 用前缀和来存票价 i 到第i站的票价
-            int TravelTimes[StNumMax], StopOverTimes[StNumMax];
+            int StNum{}, SeatNum{}, Prices[StNumMax]{};// 用前缀和来存票价 i 到第i站的票价
+            int TravelTimes[StNumMax]{}, StopOverTimes[StNumMax]{};
             Time StartTime;
             std::pair<Date, Date> SaleDate;
-            char Type;
-            bool is_released;
+            char Type{};
+            bool is_released{};
             std::pair<Time, Time> TimeTable[StNumMax];
-            int TimeStamp;// 记录发布这个火车的时间戳，相当于一个TrainID
+            int TimeStamp{};// 记录发布这个火车的时间戳，相当于一个TrainID
         };
 
         bptree<fstr<TrainIDMax>, TrainInfo> TrainDb;
 
         struct DayTrainInfo {
-            int RemainSeats[StNumMax];// 第1项为SeatNum，以此类推
+            int RemainSeats[StNumMax]{};// 第1项为SeatNum，以此类推
             int Get_Remain(int l, int r) { // 从第l站坐到第r站
                 int ret = 0x3f3f3f3f;
                 for (int i = l + 1; i <= r; ++i)
@@ -167,10 +167,10 @@ namespace hnyls2002 {
             for (int i = 0; i < Train.StNum; ++i)
                 Train.StName[i + 1] = tmp[i];
 
-            tmp = split_cmd(arg['p'], '|'); // Prices n-1 前缀和 第0项为0
+            tmp = split_cmd(arg['p'], '|'); // Prices n-1 前缀和 第1项为0
             Train.Prices[0] = 0;
             for (int i = 0; i < Train.StNum - 1; ++i)
-                Train.Prices[i + 1] = Train.Prices[i] + std::stoi(tmp[i]);
+                Train.Prices[i + 2] = Train.Prices[i + 1] + std::stoi(tmp[i]);
 
             tmp = split_cmd(arg['t'], '|');
             for (int i = 0; i < Train.StNum - 1; ++i)// TravelTimes n-1项，从 1 开始
@@ -246,7 +246,7 @@ namespace hnyls2002 {
 
         struct TicketType {
             fstr<TrainIDMax> TrainID;
-            int TravelTime, Cost, RemainSeat;
+            int TravelTime{}, Cost{}, RemainSeat{};
             Time Leaving, Arriving;
 
             std::string to_string(const std::string &s, const std::string &t) {
@@ -386,21 +386,20 @@ namespace hnyls2002 {
             success = 0, pending = 1, refunded = 2
         };
 
-        const std::string StatusToString[3] = {"success", "pending", "refunded"};
+        const std::string StatusToString[3] = {"[success]", "[pending]", "[refunded]"};
 
         struct Order {
-            StatusType Status;
+            StatusType Status{};
             TicketType tik;
             fstr<StNameMax> From, To;
             Date Day;
-            int pl, pr;
+            int pl{}, pr{};
         };
 
         bptree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;// 第二维存这是第几个订单
 
         struct PendType {
             fstr<UserNameMax> UserName;
-            fstr<StNameMax> From, To;
             int TicketNum, pl, pr, id;// 存了车站顺序和订单的编号
         };
 
@@ -413,7 +412,7 @@ namespace hnyls2002 {
             if (!Train.is_released)return ret_value(-1);// 没有被release
             int TimeStamp = Train.TimeStamp;
             int pl = TrainSet[{arg['f'], TimeStamp}].second, pr = TrainSet[{arg['t'], TimeStamp}].second;
-            int IntervalDays = GetDate(Train, pl, 'd');
+            int IntervalDays = GetDate(Train, pl, arg['d']);
             Date Day = Date(Train.StartTime.DayStep(IntervalDays));
             if (Day < Train.SaleDate.first || Train.SaleDate.second < Day)return ret_value(-1);// 不在区间内
             if (DayTrainDb.find({Train.TrainID, Day}) == DayTrainDb.end()) {// 没有实例化，现在实例化
@@ -435,7 +434,7 @@ namespace hnyls2002 {
             } else {
                 // 存-TimeStamp
                 PendDb[{{Train.TrainID, Day}, -TimeStamp}] =
-                        PendType{arg['u'], arg['f'], arg['t'], TicketNum, pl, pr, User.OrderNum + 1};
+                        PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1};
                 order.Status = pending;
             }
             TicketType tik;

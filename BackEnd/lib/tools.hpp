@@ -58,7 +58,7 @@ namespace hnyls2002 {
     template<int LEN>
     class fstr {
     public:
-        char s[LEN];
+        char s[LEN]{};
         int siz;
 
         fstr() : siz(0) { s[0] = '\0'; }
@@ -85,7 +85,7 @@ namespace hnyls2002 {
         }
 
         bool operator!=(const fstr<LEN> &oth) const {
-            return !(*this == oth);
+            return !(operator==(oth));
         }
 
         bool operator<(const fstr<LEN> &oth) const {
@@ -103,7 +103,6 @@ namespace hnyls2002 {
             return os;
         }
 
-        bool empty() const { return siz != 0; }
     };
 
     sjtu::vector<std::string> split_cmd(const std::string &str, const char &ch) {
@@ -126,7 +125,7 @@ namespace hnyls2002 {
     struct Date {
         int mm, dd;
 
-        Date(int _mm = 0, int _dd = 0) : mm(_mm), dd(_dd) {}
+        explicit Date(int _mm = 0, int _dd = 0) : mm(_mm), dd(_dd) {}
 
         explicit Date(const Time &time);// 这里特地设计成只可以显式转化
 
