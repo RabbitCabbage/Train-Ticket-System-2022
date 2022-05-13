@@ -136,6 +136,10 @@ namespace hnyls2002 {
             dd = std::stoi(tmp[1]);
         }
 
+        bool operator==(const Date &d) const {
+            return mm == d.mm && dd == d.dd;
+        }
+
         bool operator<(const Date &d) const {
             if (mm != d.mm)return mm < d.mm;
             return dd < d.dd;
@@ -230,10 +234,14 @@ namespace hnyls2002 {
             return t1.to_int() - t2.to_int();
         }
 
+        bool operator<(const Time &t) const {
+            return to_int() < t.to_int();
+        }
+
         Time DayStep(int x) {// 这个时间往后跳x天
             Date tmp = Date(*this);
             tmp += x;
-            return Time(tmp, *this);
+            return Time{tmp, *this};
         }
     };
 
