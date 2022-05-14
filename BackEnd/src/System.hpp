@@ -187,6 +187,7 @@ namespace hnyls2002 {
 
             Time BasicTime(tmp[0], arg['x']);// 发售日期的第一趟车为基准的TimeTable
             for (int i = 1; i <= Train.StNum; ++i) {
+                // first-Arriving second-Leaving
                 if (i > 1)Train.TimeTable[i].first = (BasicTime += Train.TravelTimes[i - 1]);
                 if (i > 1 && i < Train.StNum)Train.TimeTable[i].second = (BasicTime += Train.StopOverTimes[i - 1]);
                 if (i == 1)Train.TimeTable[i].second = BasicTime;
@@ -237,7 +238,9 @@ namespace hnyls2002 {
                 tmp += (i == 1 ? "xx-xx xx:xx" : Train.TimeTable[i].first.DayStep(IntervalDays).to_string()) + " -> ";
                 tmp += i == Train.StNum ? "xx-xx xx:xx" : Train.TimeTable[i].second.DayStep(IntervalDays).to_string();
                 tmp += " " + std::to_string(Train.Prices[i]) + " ";
-                if (is_in)tmp += std::to_string(DayTrain.RemainSeats[i]);
+                // 这里查询的是从这一站到下一站的票数
+                if (i == Train.StNum)tmp += "x";
+                else if (is_in)tmp += std::to_string(DayTrain.RemainSeats[i + 1]);
                 else tmp += std::to_string(Train.SeatNum);
                 ret.push_back(tmp);
             }
@@ -344,7 +347,7 @@ namespace hnyls2002 {
             sjtu::vector<std::pair<TrainInfo, int> > lis_s, lis_t;
             for (; it_s != TrainSet.end() && it_s->first.first == arg['s']; ++it_s)
                 lis_s.push_back({TrainDb[it_s->second.first], it_s->second.second});
-            for (; it_t != TrainSet.end() && it_t->first.first == arg['s']; ++it_t)
+            for (; it_t != TrainSet.end() && it_t->first.first == arg['t']; ++it_t)
                 lis_t.push_back({TrainDb[it_t->second.first], it_t->second.second});
             // 得到了两个list
             TransType tik;
@@ -393,7 +396,7 @@ namespace hnyls2002 {
             TicketType tik;
             fstr<StNameMax> From, To;
             Date Day;
-            int pl{}, pr{};
+            int pl{}, pr{}, TimeStamp{};
         };
 
         bptree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;// 第二维存这是第几个订单
@@ -410,8 +413,11 @@ namespace hnyls2002 {
             if (TrainDb.find(arg['i']) == TrainDb.end())return ret_value(-1);// 没有这列车
             auto Train = TrainDb[arg['i']];
             if (!Train.is_released)return ret_value(-1);// 没有被release
-            int TimeStamp = Train.TimeStamp;
-            int pl = TrainSet[{arg['f'], TimeStamp}].second, pr = TrainSet[{arg['t'], TimeStamp}].second;
+            int TimeStampTrain = Train.TimeStamp;
+            // 可能没有这个站
+            if (TrainSet.find({arg['f'], TimeStampTrain}) == TrainSet.end())return ret_value(-1);
+            if (TrainSet.find({arg['t'], TimeStampTrain}) == TrainSet.end())return ret_value(-1);
+            int pl = TrainSet[{arg['f'], TimeStampTrain}].second, pr = TrainSet[{arg['t'], TimeStampTrain}].second;
             int IntervalDays = GetDate(Train, pl, arg['d']);
             Date Day = Date(Train.StartTime.DayStep(IntervalDays));
             if (Day < Train.SaleDate.first || Train.SaleDate.second < Day)return ret_value(-1);// 不在区间内
@@ -432,23 +438,23 @@ namespace hnyls2002 {
                 DayTrainDb[{Train.TrainID, Day}] = DayTrain;
                 order.Status = success;
             } else {
-                // 存-TimeStamp
-                PendDb[{{Train.TrainID, Day}, -TimeStamp}] =
+                PendDb[{{Train.TrainID, Day}, arg.TimeStamp}] =
                         PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1};
                 order.Status = pending;
             }
             TicketType tik;
-            tik.Arriving = Train.TimeTable[pl].second.DayStep(IntervalDays);
-            tik.Leaving = Train.TimeTable[pr].first.DayStep(IntervalDays);
+            tik.Leaving = Train.TimeTable[pl].second.DayStep(IntervalDays);
+            tik.Arriving = Train.TimeTable[pr].first.DayStep(IntervalDays);
             tik.RemainSeat = TicketNum;
-            tik.Cost = tik.RemainSeat * (Train.Prices[pr] - Train.Prices[pl]);
+            // 这里Cost记录单价!!!
+            tik.Cost = Train.Prices[pr] - Train.Prices[pl];
             tik.TrainID = arg['i'];
             order.tik = tik, order.From = arg['f'], order.To = arg['t'], order.Day = Day;
-            order.pl = pl, order.pr = pr;
+            order.pl = pl, order.pr = pr, order.TimeStamp = arg.TimeStamp;
             OrderDb[{User.UserName, -(++User.OrderNum)}] = order;
             UserDb[{arg['u']}] = User;
-            if (order.Status == success)return ret_type{std::to_string(tik.Cost)};
-            else return ret_type{"pending"};
+            if (order.Status == success)return ret_type{std::to_string(tik.Cost * TicketNum)};
+            else return ret_type{"queue"};
         }
 
         ret_type query_order(const CmdType &arg) {
@@ -467,27 +473,37 @@ namespace hnyls2002 {
 
         ret_type refund_ticket(const CmdType &arg) {
             if (Logged.find(arg['u']) == Logged.end())return ret_value(-1);// 没有登录
-            int id = arg['n'].empty() ? 1 : std::stoi(arg['n']);
+            int tot_order = UserDb[arg['u']].OrderNum;
+            int id = arg['n'].empty() ? tot_order : tot_order - std::stoi(arg['n']) + 1;
+            if (id <= 0)return ret_value(-1);// 没有这么多订单
             auto order = OrderDb[{arg['u'], -id}];// order 要退的订单 order2 要候补的订单
-            if (order.Status != success)return ret_value(-1);
+            if (order.Status == refunded)return ret_value(-1);
+            bool flag = true;
+            if (order.Status == pending)flag = false;
             order.Status = refunded;
             OrderDb[{arg['u'], -id}] = order;
+
             std::pair<fstr<TrainIDMax>, Date> info = {order.tik.TrainID, order.Day};
-            auto DayTrain = DayTrainDb[info];
-            DayTrain.Modify(order.pl, order.pr, -order.tik.RemainSeat);
-            // 处理候补的订单
-            auto it = PendDb.lower_bound({info, -0x3f3f3f3f});
-            for (; it->first.first == info;) {
-                int RemainTickets = DayTrain.Get_Remain(it->second.pl, it->second.pr);
-                if (RemainTickets >= it->second.TicketNum) {// 候补成功
-                    auto order2 = OrderDb[{it->second.UserName, -it->second.id}];
-                    order2.Status = success;
-                    OrderDb[{it->second.UserName, -it->second.id}] = order2;
-                    DayTrain.Modify(it->second.pl, it->second.pr, it->second.TicketNum);
-                    PendDb.erase(it++);// 可能一次删除很多个
-                } else ++it;
+            if (!flag) {// 为假说明要把这个退订的候补在PendDb中删除
+                PendDb.erase(PendDb.find({info, order.TimeStamp}));
+            } else {// 为真代表会有多的票空出来
+                auto DayTrain = DayTrainDb[info];
+                DayTrain.Modify(order.pl, order.pr, -order.tik.RemainSeat);
+
+                // 处理候补的订单
+                auto it = PendDb.lower_bound({info, 0});
+                for (; it->first.first == info;) {
+                    int RemainTickets = DayTrain.Get_Remain(it->second.pl, it->second.pr);
+                    if (RemainTickets >= it->second.TicketNum) {// 候补成功
+                        auto order2 = OrderDb[{it->second.UserName, -it->second.id}];
+                        order2.Status = success;
+                        OrderDb[{it->second.UserName, -it->second.id}] = order2;
+                        DayTrain.Modify(it->second.pl, it->second.pr, it->second.TicketNum);
+                        PendDb.erase(it++);// 可能一次删除很多个
+                    } else ++it;
+                }
+                DayTrainDb[info] = DayTrain;
             }
-            DayTrainDb[info] = DayTrain;
             return ret_value(0);
         }
 
@@ -500,6 +516,7 @@ namespace hnyls2002 {
         }
 
         ret_type exit(const CmdType &arg) {
+            Logged.clear();
             return ret_type{"bye"};
         }
 

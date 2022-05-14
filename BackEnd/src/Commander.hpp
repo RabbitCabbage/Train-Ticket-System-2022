@@ -33,7 +33,7 @@ namespace hnyls2002 {
         int len = str.size();
         std::string tmp;
         for (int i = 0; i < len; ++i) {
-            if (str[i] == ' ') {
+            if (str[i] == ' ' || str[i] == '\n' || str[i] == '\r') {
                 if (!tmp.empty())ret.push_back(tmp);
                 tmp.clear();
             } else tmp += str[i];
