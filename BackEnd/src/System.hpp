@@ -262,11 +262,13 @@ namespace hnyls2002 {
         };
 
         static bool cmp_ticket_time(const TicketType &t1, const TicketType &t2) {
-            return t1.TravelTime < t2.TravelTime;
+            if (t1.TravelTime != t2.TravelTime) return t1.TravelTime < t2.TravelTime;
+            return t1.TrainID < t2.TrainID;
         }
 
         static bool cmp_ticket_cost(const TicketType &t1, const TicketType &t2) {
-            return t1.Cost < t2.Cost;
+            if (t1.Cost != t2.Cost) return t1.Cost < t2.Cost;
+            return t1.TrainID < t2.TrainID;
         }
 
         std::pair<int, TicketType>
@@ -279,7 +281,7 @@ namespace hnyls2002 {
             if (DayTrainDb.find({Train.TrainID, BuyDate}) != DayTrainDb.end())
                 ret.RemainSeat = DayTrainDb[{Train.TrainID, BuyDate}].Get_Remain(pl, pr);
             else ret.RemainSeat = Train.SeatNum;// 没有实例化
-            if (!ret.RemainSeat)return {-3, ret};// 没有票了
+            //if (!ret.RemainSeat)return {-3, ret};// 没有票了
 
             ret.Leaving = Train.TimeTable[pl].second.DayStep(IntervalDays);
             ret.Arriving = Train.TimeTable[pr].first.DayStep(IntervalDays);
@@ -310,6 +312,7 @@ namespace hnyls2002 {
                 auto pr = CheckTrain(Train, pl, arg['t']);
                 if (!pr)continue;// 查询车次是否合法
                 auto tik = Get_Ticket(Train, pl, pr, arg['d']);
+                //没有票也可以查到的哦！
                 if (tik.first == 0)tickets.push_back(tik.second);
             }
             auto cmp = arg['p'] == "cost" ? &System::cmp_ticket_cost : &System::cmp_ticket_time;
@@ -370,7 +373,11 @@ namespace hnyls2002 {
                             auto tik2 = Get_Ticket(T.first, ql, qr, d);
                             if (tik2.first == -2)break;// 超过日期，可以退出循环
                             if (tik2.first < 0)continue;
-                            if (tik2.second.Arriving < Arrival)continue;// 这里记得还要判断一下是否大于上一次的Arriving Time!!!
+                            if (tik2.second.Leaving < Arrival)continue;// 这里记得还要判断一下是否大于上一次的Arriving Time!!!
+                            if (S.first.TrainID == T.first.TrainID) {
+                                //if (GetDate(S.first, pl, arg['d']) == GetDate(T.first, ql, d))
+                                continue;// 换乘的是同一辆车
+                            }
                             if (!flag) tik = {tik1.second, tik2.second, trans.to_string()}, flag = true;
                             else tik = std::min(tik, {tik1.second, tik2.second, trans.to_string()}, cmp);
                             break;

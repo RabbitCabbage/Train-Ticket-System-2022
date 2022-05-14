@@ -65,11 +65,11 @@ hnyls2002::System sys;
 
 int main() {
     file();
-    freopen("../testdata/basic_5/my.in", "r", stdin);
-    freopen("../testdata/basic_5/my.out", "w", stdout);
+    freopen("../testdata/basic_1/my.in", "r", stdin);
+    freopen("../testdata/basic_1/my.out", "w", stdout);
     std::string str;
     while (getline(std::cin, str)) {
-        //std::cout << str.substr(0, 7) << " ";
+       // std::cout << str.substr(0, 7) << " ";
         auto res = sys.Opt(str);
         for (auto it: res)
             std::cout << it << std::endl;
