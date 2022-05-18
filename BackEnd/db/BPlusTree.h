@@ -16,8 +16,8 @@ namespace ds {
     class BPlusTree {
         //以下两个值暂定，可能以后根据实际情况更改
     public:
-        static const int max_key_num = 5;//一个数据块最多记有多少个键值
-        static const int max_rcd_num = 5;//一个数据块最多存多少条记录
+        static const int max_key_num = 500;//一个数据块最多记有多少个键值
+        static const int max_rcd_num = 500;//一个数据块最多存多少条记录
 
 
         struct Node {
@@ -1065,6 +1065,9 @@ namespace ds {
                 }
                 return {key, info};
             }
+            bool AtEnd(){
+                return at_end;
+            }
         };
 
         //返回指向比key更大的
@@ -1079,6 +1082,7 @@ namespace ds {
             iter.at_end = false;
             return iter;
         }
+
     };
 }
 #endif //UNTITLED2_BPLUSTREE_H
