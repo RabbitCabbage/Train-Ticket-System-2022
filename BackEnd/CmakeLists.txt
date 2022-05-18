@@ -18,7 +18,4 @@ add_executable(TrainTicketSystem
         src/main.cpp
         src/RollBack.hpp
         src/System.hpp
-        lib/tools.hpp
-        db/BPlusTree.h
-        db/MemoryRiver.h
-        )
+        lib/tools.hpp)
