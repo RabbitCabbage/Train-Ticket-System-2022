@@ -15,8 +15,8 @@ namespace ds {
     class BPlusTree {
         //以下两个值暂定，可能以后根据实际情况更改
     public:
-        static const int max_key_num = 5;//一个数据块最多记有多少个键值
-        static const int max_rcd_num = 5;//一个数据块最多存多少条记录
+        static const int max_key_num = 31;//一个数据块最多记有多少个键值
+        static const int max_rcd_num = 17;//一个数据块最多存多少条记录
 
 
         struct Node {
@@ -59,12 +59,12 @@ namespace ds {
         //this is a tool function to do binary search
         //find the first key that is smaller than or equal to the wanted
         //if every key is bigger than this one return -1;
-        void PeekNode(const Node &node) {
-            std::cout << "node location ";
-            std::cout << node.location << std::endl;
-            for (int i = 0; i < node.children_num; ++i) std::cout << node.keys << ' ';
-            std::cout << std::endl;
-        }
+//        void PeekNode(const Node &node) {
+//            std::cout << "node location ";
+//            std::cout << node.location << std::endl;
+//            for (int i = 0; i < node.children_num; ++i) std::cout << node.keys << ' ';
+//            std::cout << std::endl;
+//        }
 
 
         int BinarySearchLess(Key array[], int size, const Key &key) {
@@ -117,7 +117,7 @@ namespace ds {
             int num = BinarySearchLess(cur.keys, cur.children_num, key);
             if (num == -1)num = 0;
             Block block;
-            if (!record_memory->Read(cur.children[num], block))printf("%s", "read failed 4\n");//todo
+            if (!record_memory->Read(cur.children[num], block))printf("%s", "read failed 4\n");
             int key_index = BinarySearch(block, key);
             Info tmp;
             if (key_index == -1)return {{-1, -1}, tmp};
@@ -316,10 +316,11 @@ namespace ds {
         //check if the problem can be dealt with in the cur and his brother
         //if the child can be borrowed return true and the node doesn't merge
         //else return false then merge the children
-        bool BorrowChild(Node cur, int num, Node parent, int &brother_to_merge_index, Node &brother_to_merge) {
+        bool BorrowChild(Node &cur, int num, Node &parent, int &brother_to_merge_index, Node &brother_to_merge) {
             //cur is the num child of parent
             //so check the brother in num-1 and num+1
             bool flag = false;
+            if (cur.location == root.location)return flag;
             if (num - 1 >= 0) {
                 Node left_brother;
                 if (!index_memory->Read(parent.children[num - 1], left_brother))printf("%s", "read failed 9\n");
@@ -337,6 +338,7 @@ namespace ds {
                     if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 8\n");
                     if (!index_memory->Write(left_brother.location, left_brother))printf("%s", "write failed 9\n");
                     if (!index_memory->Write(parent.location, parent))printf("%s", "write failed 12\n");
+                    if (parent.location == root.location)root = parent;
                 } else {
                     brother_to_merge_index = num - 1;
                     brother_to_merge = left_brother;
@@ -360,6 +362,7 @@ namespace ds {
                     if (!index_memory->Write(right_brother.location, right_brother))
                         printf("%s", "write failed 11\n");
                     if (!index_memory->Write(parent.location, parent))printf("%s", "write failed 13\n");
+                    if (parent.location == root.location)root = parent;
                 } else {
                     brother_to_merge_index = num + 1;
                     brother_to_merge = right_brother;
@@ -369,7 +372,7 @@ namespace ds {
         }
 
         //merge rear into the front and then the rear will be deleted;
-        void MergeBrothers(Node front, Node rear) {
+        void MergeBrothers(Node &front, Node rear) {
             for (int i = front.children_num, j = 0; j < rear.children_num; ++i, ++j) {
                 front.children[i] = rear.children[j];
                 front.keys[i] = rear.keys[j];
@@ -387,7 +390,7 @@ namespace ds {
             if (!index_memory->Write(front.location, front))printf("%s", "write failed 15\n");
         }
 
-        void MergeBlocks(Block front, Block rear, int front_loc) {
+        void MergeBlocks(Block &front, Block &rear, int front_loc) {
             for (int i = front.size, j = 0; j < rear.size; ++i, ++j) {
                 front.record[i] = rear.record[j];
                 front.keys[i] = rear.keys[j];
@@ -396,14 +399,13 @@ namespace ds {
             if (!record_memory->Write(front_loc, front))printf("%s", "write failed 15\n");
         }
 
-        //merged index is the child that remains 
+        //merged index is the child that remains
         //we suppose that always remain the child that close to the front, merge the rare one
-        bool RecursionRemove(Node &cur, const Key &key, bool &success, int &merged_index, Node &merged_child) {
+        bool RecursionRemove(Node &cur, const Key &key, bool &success, Node &parent) {
             int num = BinarySearchLess(cur.keys, cur.children_num, key);
             if (num == -1)num = 0;
             if (cur.isleaf) {
                 Block block;
-                Node parent = cur;
                 if (!record_memory->Read(cur.children[num], block))printf("%s", "read failed 13\n");
                 int index = BinarySearch(block, key);
                 if (index == -1) {
@@ -423,8 +425,16 @@ namespace ds {
                     //directly remove
                     if (!record_memory->Write(cur.children[num], block))printf("%s", "write failed 17\n");
                     if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 31\n");
+                    if (cur.location == root.location)root = cur;
                     return false;
                 } else {
+                    if (cur.location == root.location && cur.children_num == 1) {
+                        //directly remove
+                        if (!record_memory->Write(cur.children[num], block))printf("%s", "write failed 17\n");
+                        if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 31\n");
+                        if (cur.location == root.location)root = cur;
+                        return false;
+                    }
                     //borrow a record from the brother block
                     //or merged
                     Block to_merge_brother;
@@ -459,8 +469,8 @@ namespace ds {
                         if (right_brother.size > max_rcd_num / 2) {
                             cur.keys[num + 1] = right_brother.keys[1];
                             block.keys[block.size] = right_brother.keys[0];
-                            block.record[block.size] = right_brother.keys[0];
-                            for (int i = 1; i < right_brother.size - 1; ++i) {
+                            block.record[block.size] = right_brother.record[0];
+                            for (int i = 1; i <= right_brother.size - 1; ++i) {
                                 right_brother.keys[i - 1] = right_brother.keys[i];
                                 right_brother.record[i - 1] = right_brother.record[i];
                             }
@@ -490,47 +500,27 @@ namespace ds {
                     }
                     //there are children merged
                     //its index is in the reference;
-                    if (cur.children_num > max_key_num / 2) {
+                    for (int i = the_merged_index + 1; i <= cur.children_num - 2; ++i) {
+                        cur.children[i] = cur.children[i + 1];
+                        cur.keys[i] = cur.keys[i + 1];
+                    }
+                    cur.children_num--;
+                    cur.keys[the_merged_index] = the_merged_child.keys[0];
+                    if (cur.children_num >= max_key_num / 2 || cur.location == root.location) {
                         //the merge can directly happen
                         //now the child in the index is completely well dealt;
-                        for (int i = the_merged_index + 1; i <= cur.children_num - 2; ++i) {
-                            cur.children[i] = cur.children[i + 1];
-                            cur.keys[i] = cur.keys[i + 1];
-                        }
-                        cur.children_num--;
-                        cur.keys[the_merged_index] = the_merged_child.keys[0];
                         if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 12\n");
                         if (cur.location == root.location)root = cur;
                         return false;
-                    } else {
-                        //borrow a child from the brother before ar after;
-                        int brother_to_merge_index;
-                        Node brother_to_merge;
-                        bool borrow_flag = BorrowChild(cur, num, parent, brother_to_merge_index, brother_to_merge);
-                        if (borrow_flag)return false;//the recursion is ended;
-                        else {
-                            if (brother_to_merge_index > num) {
-                                MergeBrothers(cur, brother_to_merge);
-                                merged_child = cur;
-                                merged_index = num;
-                            } else {
-                                MergeBrothers(brother_to_merge, cur);
-                                merged_child = brother_to_merge;
-                                merged_index = num - 1;
-                            }
-                            return true;
-                        }
-                    }
+                    } else return true;//这就直接告诉自己的爹，我现在孩子个数不够了，找个兄弟帮我
                 }
 
             } else {
                 //should go to the next remove
-                Node parent = cur;
+                parent = cur;
                 if (!index_memory->Read(cur.children[num], cur))printf("%s", "read failed 8\n3");
-                int the_merged_index;//the index of the child be merged;
-                Node the_merged_child;
-                bool have_merged = RecursionRemove(cur, key, success, the_merged_index, the_merged_child);
-                if (!have_merged) {
+                bool need_brother = RecursionRemove(cur, key, success, parent);
+                if (!need_brother) {
                     if (cmp.operator()(parent.keys[num], cur.keys[0])) {
                         parent.keys[num] = cur.keys[0];
                         if (!index_memory->Write(parent.location, parent))printf("%s", "write failed 32\n");
@@ -538,38 +528,57 @@ namespace ds {
                     }
                     return false;//the removal suceeded and the recursion ended;
                 } else {
+                    //否则的话就是需要brother，现在parent的孩子cur，需要一个brother来帮助他
+                    //borrow a child from the brother before ar after;
+                    int brother_to_merge_index;
+                    Node brother_to_merge;
+                    bool borrow_flag = BorrowChild(cur, num, parent, brother_to_merge_index,
+                                                   brother_to_merge);
+                    Node merged_child;
+                    int merged_index;
+                    if (borrow_flag)return false;//the recursion is ended;
+                    else {
+                        if (brother_to_merge_index > num) {
+                            MergeBrothers(cur, brother_to_merge);
+                            merged_child = cur;
+                            merged_index = num;
+                        } else {
+                            MergeBrothers(brother_to_merge, cur);
+                            merged_child = brother_to_merge;
+                            merged_index = num - 1;
+                        }
+                    }
                     //there are children merged
                     //its index is in the reference;
-                    if (cur.children_num > max_key_num / 2) {
+                    for (int i = merged_index + 1; i <= parent.children_num - 2; ++i) {
+                        parent.children[i] = parent.children[i + 1];
+                        parent.keys[i] = parent.keys[i + 1];
+                    }
+                    parent.children_num--;
+                    parent.keys[merged_index] = merged_child.keys[0];
+
+                    if (parent.children_num >= max_key_num / 2) {
                         //the merge can directly happen
                         //now the child in the index is completely well dealt;
-                        for (int i = the_merged_index + 1; i <= cur.children_num - 2; ++i) {
-                            cur.children[i] = cur.children[i + 1];
-                            cur.keys[i] = cur.keys[i + 1];
+                        if (!index_memory->Write(parent.location, parent))printf("%s", "write failed 12\n");
+                        if (parent.location == root.location) {
+                            root = parent;
                         }
-                        cur.children_num--;
-                        cur.keys[the_merged_index] = the_merged_child.keys[0];
-                        if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 12\n");
-                        if (cur.location == root.location)root = cur;
                         return false;
                     } else {
-                        //borrow a child from the brother before ar after;
-                        int brother_to_merge_index;
-                        Node brother_to_merge;
-                        bool borrow_flag = BorrowChild(cur, num, parent, brother_to_merge_index, brother_to_merge);
-                        if (borrow_flag)return false;//the recursion is ended;
-                        else {
-                            if (brother_to_merge_index > num) {
-                                MergeBrothers(cur, brother_to_merge);
-                                merged_child = cur;
-                                merged_index = num;
+                        if (parent.location == root.location) {
+                            if (parent.children_num == 1) {
+                                root = merged_child;
+                                root_index = merged_child.location;
+                                return true;
+                                //相当于根节点不要了
                             } else {
-                                MergeBrothers(brother_to_merge, cur);
-                                merged_child = brother_to_merge;
-                                merged_index = num - 1;
+                                if (!index_memory->Write(parent.location, parent))printf("%s", "write failed 12\n");\
+                                root = parent;
+                                return false;
                             }
-                            return true;
                         }
+                        return true; //否则他就得申请向自己的爹要一个兄弟来帮忙
                     }
                 }
             }
@@ -635,10 +644,9 @@ namespace ds {
         //如果这个元素在B+树中不存在就删除失败
         bool Remove(const Key &key) {
             bool flag;
-            Node tmp;
-            int tmp_index;
+            Node tmp_parent;
             Node cur = root;
-            RecursionRemove(cur, key, flag, tmp_index, tmp);
+            RecursionRemove(cur, key, flag, tmp_parent);
             scale -= (int) flag;
             return flag;
         }
