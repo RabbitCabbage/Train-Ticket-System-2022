@@ -122,6 +122,7 @@ int main() {
         if (arg[0] == "add")add(std::stoi(arg[1]), std::stoi(arg[2]), std::stoi(arg[3]));
         else if (arg[0] == "erase")erase(std::stoi(arg[1]), std::stoi(arg[2]));
         else if (arg[0] == "show")show();
+        else if (arg[0] == "exit")break;
     }
 
     clock_t end = clock();
