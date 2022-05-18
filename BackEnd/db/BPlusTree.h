@@ -483,7 +483,7 @@ namespace ds {
 
         //merged index is the child that remains
         //we suppose that always remain the child that close to the front, merge the rare one
-        bool RecursionRemove(Node& cur, const Key &key, bool &success, Node parent) {
+        bool RecursionRemove(Node &cur, const Key &key, bool &success, Node parent) {
             int num = BinarySearchLess(cur.keys, cur.children_num, key);
             if (num == -1)num = 0;
             if (cur.isleaf) {
@@ -640,7 +640,7 @@ namespace ds {
                         success = true;
                         return false;
                     } else {
-                        if(!index_memory->Write(cur.location,cur)){
+                        if (!index_memory->Write(cur.location, cur)) {
                             ds::WriteException e;
                             throw e;
                         }
@@ -729,11 +729,11 @@ namespace ds {
                                 return false;
                             }
                         }
-                        if(!index_memory->Write(cur.location,cur)){
+                        if (!index_memory->Write(cur.location, cur)) {
                             ds::WriteException e;
                             throw e;
                         }
-                        cur=parent;
+                        cur = parent;
                         return true; //否则他就得申请向自己的爹要一个兄弟来帮忙
                     }
                 }
@@ -1065,7 +1065,8 @@ namespace ds {
                 }
                 return {key, info};
             }
-            bool AtEnd(){
+
+            bool AtEnd() {
                 return at_end;
             }
         };
@@ -1076,8 +1077,8 @@ namespace ds {
             bool find = RecursionFindBigger(wanted, iter.block, iter.leaf_node, iter.key, iter.info, iter.node_index,
                                             iter.block_index);
             if (!find) {
-                ds::FindException e;
-                throw e;
+                iter.at_end = true;
+                return iter;
             }
             iter.at_end = false;
             return iter;
