@@ -483,7 +483,7 @@ namespace ds {
 
         //merged index is the child that remains
         //we suppose that always remain the child that close to the front, merge the rare one
-        bool RecursionRemove(Node &cur, const Key &key, bool &success, Node &parent) {
+        bool RecursionRemove(Node& cur, const Key &key, bool &success, Node parent) {
             int num = BinarySearchLess(cur.keys, cur.children_num, key);
             if (num == -1)num = 0;
             if (cur.isleaf) {
@@ -639,12 +639,18 @@ namespace ds {
                         if (cur.location == root.location)root = cur;
                         success = true;
                         return false;
-                    } else return true;//这就直接告诉自己的爹，我现在孩子个数不够了，找个兄弟帮我
+                    } else {
+                        if(!index_memory->Write(cur.location,cur)){
+                            ds::WriteException e;
+                            throw e;
+                        }
+                        return true;//这就直接告诉自己的爹，我现在孩子个数不够了，找个兄弟帮我
+                    }
                 }
 
             } else {
                 //should go to the next remove
-                parent = cur;
+                parent = cur;//parent记下原始的父亲节点，下面对parent的修改不会涉及到外面parent的变化
                 if (!index_memory->Read(cur.children[num], cur)) {
                     ds::ReadException e;
                     throw e;
@@ -723,6 +729,11 @@ namespace ds {
                                 return false;
                             }
                         }
+                        if(!index_memory->Write(cur.location,cur)){
+                            ds::WriteException e;
+                            throw e;
+                        }
+                        cur=parent;
                         return true; //否则他就得申请向自己的爹要一个兄弟来帮忙
                     }
                 }
