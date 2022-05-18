@@ -104,6 +104,10 @@ namespace ds {
         // the first int is the index of the block and the second int is the index of the record in the block;
         //the index can be used to modify the struct infomation
         std::pair<std::pair<int, int>, Info> RecursionFind(const Key &key) {
+            if (scale == 0) {
+                Info tmp;
+                return {{-1, -1}, tmp};
+            }
             Node cur = root;
             while (!cur.isleaf) {
                 int num = BinarySearchLess(cur.keys, cur.children_num, key);
