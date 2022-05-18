@@ -892,6 +892,9 @@ namespace ds {
         RecursionFindBigger(const Key &wanted, Block &block, Node &leaf, Key &key,
                             Info &info, int &node_index, int &block_index) {
             Node cur = root;
+            if(cur.children_num==0){
+                return false;
+            }
             while (!cur.isleaf) {
                 int num = BinarySearchLess(cur.keys, cur.children_num, wanted);
                 if (num == -1)num = 0;
