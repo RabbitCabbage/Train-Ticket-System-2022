@@ -6,6 +6,7 @@
 #define UNTITLED2_BPLUSTREE_H
 
 #include "MemoryRiver.h"
+#include "FileException.h"
 #include <functional>
 #include <cstring>
 
@@ -15,8 +16,8 @@ namespace ds {
     class BPlusTree {
         //以下两个值暂定，可能以后根据实际情况更改
     public:
-        static const int max_key_num = 31;//一个数据块最多记有多少个键值
-        static const int max_rcd_num = 17;//一个数据块最多存多少条记录
+        static const int max_key_num = 5;//一个数据块最多记有多少个键值
+        static const int max_rcd_num = 5;//一个数据块最多存多少条记录
 
 
         struct Node {
@@ -110,14 +111,20 @@ namespace ds {
                 //num is the first element that is less than or equal to the key
                 //so we need go to the children the key stand for (num)
 //                !index_memory->Read(cur.children[index + 1], cur);
-                if (!index_memory->Read(cur.children[num], cur))printf("%s", "read failed 6\n");
+                if (!index_memory->Read(cur.children[num], cur)) {
+                    ds::ReadException e;
+                    throw e;
+                }
             }
             //when the cur is leaf node come out of the circle
             //then do binary search on that leaf node to fina the key
             int num = BinarySearchLess(cur.keys, cur.children_num, key);
             if (num == -1)num = 0;
             Block block;
-            if (!record_memory->Read(cur.children[num], block))printf("%s", "read failed 4\n");
+            if (!record_memory->Read(cur.children[num], block)) {
+                ds::ReadException e;
+                throw e;
+            }
             int key_index = BinarySearch(block, key);
             Info tmp;
             if (key_index == -1)return {{-1, -1}, tmp};
@@ -138,14 +145,23 @@ namespace ds {
             new_node.isleaf = cur.isleaf;//after split they are in the same level;
             if (cur.nxt != -1) {
                 Node next_node;
-                if (!index_memory->Read(cur.nxt, next_node))printf("%s", "read failed 16\n");
+                if (!index_memory->Read(cur.nxt, next_node)) {
+                    ds::ReadException e;
+                    throw e;
+                }
                 next_node.before = new_node_loc;
-                if (!index_memory->Write(cur.nxt, next_node))printf("%s", "write failed 16\n");
+                if (!index_memory->Write(cur.nxt, next_node)) {
+                    ds::WriteException e;
+                    throw e;
+                }
             }
             cur.nxt = new_node.location;
             index_memory->Append(new_node);
             splited_child_index = num;//the info about new node are recorded by reference
-            if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 7\n");
+            if (!index_memory->Write(cur.location, cur)) {
+                ds::WriteException e;
+                throw e;
+            }
             if (cur.location == root.location)root = cur;
         }
 
@@ -159,7 +175,10 @@ namespace ds {
             cur.keys[num + 1] = added_first_key;
             cur.keys[num] = first_key;
             cur.children_num++;
-            if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 5\n");
+            if (!index_memory->Write(cur.location, cur)) {
+                ds::WriteException e;
+                throw e;
+            }
             if (cur.location == root.location)root = cur;
         }
 
@@ -192,7 +211,10 @@ namespace ds {
                     return false;
                 }
                 Block block;
-                if (!record_memory->Read(cur.children[num], block))printf("%s", "read failed 7\n");
+                if (!record_memory->Read(cur.children[num], block)) {
+                    ds::ReadException e;
+                    throw e;
+                }
                 int key_index = BinarySearchLess(block.keys, block.size, key);
                 if (key_index != -1 &&
                     (!cmp.operator()(block.keys[key_index], key) && !cmp.operator()(key, block.keys[key_index]))) {
@@ -211,11 +233,18 @@ namespace ds {
                     block.record[key_index + 1] = info;
 //                    record_memory->Write(cur.children[num], block);
                     block.size++;
-                    if (!record_memory->Write(cur.children[num], block))printf("%s", "write failed 4\n");
+                    if (!record_memory->Write(cur.children[num], block)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
                     success = true;//the insert is succeeded and it doesn't need to change the father;
                     if (key_index + 1 == 0)cur.keys[num] = block.keys[0];
-                    if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 6\n");
+                    if (!index_memory->Write(cur.location, cur)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
                     if (cur.location == root.location)root = cur;
+                    success = true;
                     return false;//the recursion ended;
                 } else {
                     for (int i = block.size - 1; i >= key_index + 1; --i) {
@@ -236,13 +265,17 @@ namespace ds {
                     block.size = max_rcd_num / 2;
                     new_block.size = max_rcd_num - block.size;
                     int new_block_loc = record_memory->Append(new_block);
-                    if (!record_memory->Write(cur.children[num], block))printf("%s", "write failed 29\n");
+                    if (!record_memory->Write(cur.children[num], block)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
                     //now the current node has to deal with an added child
                     if (cur.children_num + 1 < max_key_num) {
                         //the children can be directly added
                         //the former child is num;
                         // so the new children should be placed in num+1;
                         AddChild(cur, block.keys[0], new_block.keys[0], new_block_loc, num);
+                        success = true;
                         return false;
                     } else {
                         //cur need to split and tell his father that he splited
@@ -259,6 +292,7 @@ namespace ds {
                             root.nxt = root.before = -1;
                             root.location = index_memory->FindEnd();
                             root_index = index_memory->Append(root);
+                            success = true;
                             return false;
                         }
                         return true;
@@ -267,7 +301,10 @@ namespace ds {
             } else {
                 //we need to find the real leaf node to insert;
                 Node parent = cur;
-                if (!index_memory->Read(cur.children[num], cur))printf("%s", "read failed 3\n");
+                if (!index_memory->Read(cur.children[num], cur)) {
+                    ds::ReadException e;
+                    throw e;
+                }
                 //now cur is the next node to insert
                 Node the_added_children;
                 int former_children_index;
@@ -278,15 +315,20 @@ namespace ds {
                 if (!need_change) {
                     if (cmp.operator()(cur.keys[0], parent.keys[num])) {
                         parent.keys[num] = cur.keys[0];
-                        if (!index_memory->Write(parent.location, parent))printf("%s", "write failed 30\n");
+                        if (!index_memory->Write(parent.location, parent)) {
+                            ds::WriteException e;
+                            throw e;
+                        }
                         if (parent.location == root.location)root = parent;
                     }
+                    success = true;
                     return false;//if the father don't have to change then tell the grandfather don't change;
                 } else {
                     //his parent's children is broken into two nodes
                     if (parent.children_num + 1 < max_key_num) {
                         //the children can directly added
                         AddChild(parent, cur.keys[0], the_added_children.keys[0], the_added_loc, num);
+                        success = true;
                         return false;
                     } else {
                         //the parent node has to split and tell his father that he splited;
@@ -304,6 +346,7 @@ namespace ds {
                             root.nxt = root.before = -1;
                             root.location = index_memory->FindEnd();
                             root_index = index_memory->Append(root);
+                            success = true;
                             return false;
                         }
                         cur = parent;//下面的cur还要用，所以换回要用的值
@@ -323,7 +366,10 @@ namespace ds {
             if (cur.location == root.location)return flag;
             if (num - 1 >= 0) {
                 Node left_brother;
-                if (!index_memory->Read(parent.children[num - 1], left_brother))printf("%s", "read failed 9\n");
+                if (!index_memory->Read(parent.children[num - 1], left_brother)) {
+                    ds::ReadException e;
+                    throw e;
+                }
                 if (left_brother.children_num > max_key_num / 2) {
                     flag = true;
                     parent.keys[num] = left_brother.keys[left_brother.children_num - 1];
@@ -335,9 +381,18 @@ namespace ds {
                     cur.keys[0] = left_brother.keys[left_brother.children_num - 1];
                     left_brother.children_num--;
                     cur.children_num++;
-                    if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 8\n");
-                    if (!index_memory->Write(left_brother.location, left_brother))printf("%s", "write failed 9\n");
-                    if (!index_memory->Write(parent.location, parent))printf("%s", "write failed 12\n");
+                    if (!index_memory->Write(cur.location, cur)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
+                    if (!index_memory->Write(left_brother.location, left_brother)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
+                    if (!index_memory->Write(parent.location, parent)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
                     if (parent.location == root.location)root = parent;
                 } else {
                     brother_to_merge_index = num - 1;
@@ -346,7 +401,10 @@ namespace ds {
             }
             if (num + 1 < parent.children_num) {
                 Node right_brother;
-                if (!index_memory->Read(parent.children[num + 1], right_brother))printf("%s", "read failed 10\n");
+                if (!index_memory->Read(parent.children[num + 1], right_brother)) {
+                    ds::ReadException e;
+                    throw e;
+                }
                 if (right_brother.children_num > max_key_num / 2) {
                     flag = true;
                     parent.keys[num + 1] = right_brother.keys[1];
@@ -358,10 +416,18 @@ namespace ds {
                     }
                     right_brother.children_num--;
                     cur.children_num++;
-                    if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 10\n");
-                    if (!index_memory->Write(right_brother.location, right_brother))
-                        printf("%s", "write failed 11\n");
-                    if (!index_memory->Write(parent.location, parent))printf("%s", "write failed 13\n");
+                    if (!index_memory->Write(cur.location, cur)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
+                    if (!index_memory->Write(right_brother.location, right_brother)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
+                    if (!index_memory->Write(parent.location, parent)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
                     if (parent.location == root.location)root = parent;
                 } else {
                     brother_to_merge_index = num + 1;
@@ -381,13 +447,22 @@ namespace ds {
                 front.nxt = rear.nxt;
                 if (rear.nxt != -1) {
                     Node after;
-                    if (!index_memory->Read(rear.nxt, after))printf("%s", "read failed 11\n");
+                    if (!index_memory->Read(rear.nxt, after)) {
+                        ds::ReadException e;
+                        throw e;
+                    }
                     after.before = front.location;
-                    if (!index_memory->Write(rear.nxt, after))printf("%s", "write failed 14\n");
+                    if (!index_memory->Write(rear.nxt, after)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
                 }
             }
             front.children_num += rear.children_num;
-            if (!index_memory->Write(front.location, front))printf("%s", "write failed 15\n");
+            if (!index_memory->Write(front.location, front)) {
+                ds::WriteException e;
+                throw e;
+            }
         }
 
         void MergeBlocks(Block &front, Block &rear, int front_loc) {
@@ -396,7 +471,10 @@ namespace ds {
                 front.keys[i] = rear.keys[j];
             }
             front.size += rear.size;
-            if (!record_memory->Write(front_loc, front))printf("%s", "write failed 15\n");
+            if (!record_memory->Write(front_loc, front)) {
+                ds::WriteException e;
+                throw e;
+            }
         }
 
         //merged index is the child that remains
@@ -406,7 +484,10 @@ namespace ds {
             if (num == -1)num = 0;
             if (cur.isleaf) {
                 Block block;
-                if (!record_memory->Read(cur.children[num], block))printf("%s", "read failed 13\n");
+                if (!record_memory->Read(cur.children[num], block)) {
+                    ds::ReadException e;
+                    throw e;
+                }
                 int index = BinarySearch(block, key);
                 if (index == -1) {
                     success = false;
@@ -423,16 +504,30 @@ namespace ds {
                 }
                 if (block.size >= max_rcd_num / 2) {
                     //directly remove
-                    if (!record_memory->Write(cur.children[num], block))printf("%s", "write failed 17\n");
-                    if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 31\n");
+                    if (!record_memory->Write(cur.children[num], block)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
+                    if (!index_memory->Write(cur.location, cur)) {
+                        ds::WriteException e;
+                        throw e;
+                    }
                     if (cur.location == root.location)root = cur;
+                    success = true;
                     return false;
                 } else {
                     if (cur.location == root.location && cur.children_num == 1) {
                         //directly remove
-                        if (!record_memory->Write(cur.children[num], block))printf("%s", "write failed 17\n");
-                        if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 31\n");
+                        if (!record_memory->Write(cur.children[num], block)) {
+                            ds::WriteException e;
+                            throw e;
+                        }
+                        if (!index_memory->Write(cur.location, cur)) {
+                            ds::WriteException e;
+                            throw e;
+                        }
                         if (cur.location == root.location)root = cur;
+                        success = true;
                         return false;
                     }
                     //borrow a record from the brother block
@@ -441,7 +536,10 @@ namespace ds {
                     int to_merge_brother_index;
                     if (num - 1 >= 0) {
                         Block left_brother;
-                        if (!record_memory->Read(cur.children[num - 1], left_brother))printf("%s", "read failed 15\n");
+                        if (!record_memory->Read(cur.children[num - 1], left_brother)) {
+                            ds::ReadException e;
+                            throw e;
+                        }
                         if (left_brother.size > max_rcd_num / 2) {
                             cur.keys[num] = left_brother.keys[left_brother.size - 1];
                             for (int i = block.size; i >= 1; --i) {
@@ -452,11 +550,20 @@ namespace ds {
                             block.record[0] = left_brother.record[left_brother.size - 1];
                             block.size++;
                             left_brother.size--;
-                            if (!record_memory->Write(cur.children[num - 1], left_brother))
-                                printf("%s", "write failed 18\n");
-                            if (!record_memory->Write(cur.children[num], block))printf("%s", "write failed 19\n");
-                            if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 20\n");
+                            if (!record_memory->Write(cur.children[num - 1], left_brother)) {
+                                ds::WriteException e;
+                                throw e;
+                            }
+                            if (!record_memory->Write(cur.children[num], block)) {
+                                ds::WriteException e;
+                                throw e;
+                            }
+                            if (!index_memory->Write(cur.location, cur)) {
+                                ds::WriteException e;
+                                throw e;
+                            }
                             if (cur.location == root.location)root = cur;
+                            success = true;
                             return false;
                         } else {
                             to_merge_brother = left_brother;
@@ -465,7 +572,10 @@ namespace ds {
                     }
                     if (num + 1 <= cur.children_num - 1) {
                         Block right_brother;
-                        if (!record_memory->Read(cur.children[num + 1], right_brother))printf("%s", "read failed 16\n");
+                        if (!record_memory->Read(cur.children[num + 1], right_brother)) {
+                            ds::ReadException e;
+                            throw e;
+                        }
                         if (right_brother.size > max_rcd_num / 2) {
                             cur.keys[num + 1] = right_brother.keys[1];
                             block.keys[block.size] = right_brother.keys[0];
@@ -476,11 +586,20 @@ namespace ds {
                             }
                             block.size++;
                             right_brother.size--;
-                            if (!record_memory->Write(cur.children[num + 1], right_brother))
-                                printf("%s", "write failed 21\n");
-                            if (!record_memory->Write(cur.children[num], block))printf("%s", "write failed 22\n");
-                            if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 23\n");
+                            if (!record_memory->Write(cur.children[num + 1], right_brother)) {
+                                ds::WriteException e;
+                                throw e;
+                            }
+                            if (!record_memory->Write(cur.children[num], block)) {
+                                ds::WriteException e;
+                                throw e;
+                            }
+                            if (!index_memory->Write(cur.location, cur)) {
+                                ds::WriteException e;
+                                throw e;
+                            }
                             if (cur.location == root.location)root = cur;
+                            success = true;
                             return false;
                         } else {
                             to_merge_brother = right_brother;
@@ -509,8 +628,12 @@ namespace ds {
                     if (cur.children_num >= max_key_num / 2 || cur.location == root.location) {
                         //the merge can directly happen
                         //now the child in the index is completely well dealt;
-                        if (!index_memory->Write(cur.location, cur))printf("%s", "write failed 12\n");
+                        if (!index_memory->Write(cur.location, cur)) {
+                            ds::WriteException e;
+                            throw e;
+                        }
                         if (cur.location == root.location)root = cur;
+                        success = true;
                         return false;
                     } else return true;//这就直接告诉自己的爹，我现在孩子个数不够了，找个兄弟帮我
                 }
@@ -518,14 +641,21 @@ namespace ds {
             } else {
                 //should go to the next remove
                 parent = cur;
-                if (!index_memory->Read(cur.children[num], cur))printf("%s", "read failed 8\n3");
+                if (!index_memory->Read(cur.children[num], cur)) {
+                    ds::ReadException e;
+                    throw e;
+                }
                 bool need_brother = RecursionRemove(cur, key, success, parent);
                 if (!need_brother) {
                     if (cmp.operator()(parent.keys[num], cur.keys[0])) {
                         parent.keys[num] = cur.keys[0];
-                        if (!index_memory->Write(parent.location, parent))printf("%s", "write failed 32\n");
+                        if (!index_memory->Write(parent.location, parent)) {
+                            ds::WriteException e;
+                            throw e;
+                        }
                         if (parent.location == root.location)root = parent;
                     }
+                    success = true;
                     return false;//the removal suceeded and the recursion ended;
                 } else {
                     //否则的话就是需要brother，现在parent的孩子cur，需要一个brother来帮助他
@@ -536,8 +666,10 @@ namespace ds {
                                                    brother_to_merge);
                     Node merged_child;
                     int merged_index;
-                    if (borrow_flag)return false;//the recursion is ended;
-                    else {
+                    if (borrow_flag) {
+                        success = true;
+                        return false;//the recursion is ended;
+                    } else {
                         if (brother_to_merge_index > num) {
                             MergeBrothers(cur, brother_to_merge);
                             merged_child = cur;
@@ -560,21 +692,30 @@ namespace ds {
                     if (parent.children_num >= max_key_num / 2) {
                         //the merge can directly happen
                         //now the child in the index is completely well dealt;
-                        if (!index_memory->Write(parent.location, parent))printf("%s", "write failed 12\n");
+                        if (!index_memory->Write(parent.location, parent)) {
+                            ds::WriteException e;
+                            throw e;
+                        }
                         if (parent.location == root.location) {
                             root = parent;
                         }
+                        success = true;
                         return false;
                     } else {
                         if (parent.location == root.location) {
                             if (parent.children_num == 1) {
                                 root = merged_child;
                                 root_index = merged_child.location;
-                                return true;
+                                success = true;
+                                return false;
                                 //相当于根节点不要了
                             } else {
-                                if (!index_memory->Write(parent.location, parent))printf("%s", "write failed 12\n");\
+                                if (!index_memory->Write(parent.location, parent)) {
+                                    ds::WriteException e;
+                                    throw e;
+                                }
                                 root = parent;
+                                success = true;
                                 return false;
                             }
                         }
@@ -603,12 +744,23 @@ namespace ds {
                 //If the reading fails it means the file is empty
                 //and the scale and the root index should be initialized
                 scale = 0;
-                if (!int_memory->Write(0, scale))printf("%s", "write failed 27\n");
-                if (!int_memory->Write(sizeof(int), root_index))printf("%s", "write failed 28\n");
+                if (!int_memory->Write(0, scale)) {
+                    ds::WriteException e;
+                    throw e;
+                }
+                if (!int_memory->Write(sizeof(int), root_index)) {
+                    ds::WriteException e;
+                    throw e;
+                }
             } else {
-                if (!int_memory->Read(sizeof(int), root_index))printf("%s", "read failed 1\n");
-                if (!index_memory->Read(root_index, root))
-                    printf("%s", "read failed 2\n");//read the information for the root;
+                if (!int_memory->Read(sizeof(int), root_index)) {
+                    ds::ReadException e;
+                    throw e;
+                }
+                if (!index_memory->Read(root_index, root)) {
+                    ds::ReadException e;
+                    throw e;
+                }//read the information for the root;
 //                int_memory->Read(sizeof(int), root_index);
 //                int_memory->Read(root_index, root);//read the information for the root;
             }
@@ -616,8 +768,14 @@ namespace ds {
 
         //B+树的析构函数
         ~BPlusTree() {
-            if (!int_memory->Write(0, scale))printf("%s", "write failed 1\n");
-            if (!int_memory->Write(sizeof(int), root_index))printf("%s", "write failed 2\n");
+            if (!int_memory->Write(0, scale)) {
+                ds::WriteException e;
+                throw e;
+            }
+            if (!int_memory->Write(sizeof(int), root_index)) {
+                ds::WriteException e;
+                throw e;
+            }
 //            int_memory->Write(0, scale);
 //            int_memory->Write(sizeof(int), root_index);
             delete[]index_file;
@@ -655,10 +813,10 @@ namespace ds {
         //返回值是一个pair，bool代表有没有找到
         //如果找到这个元素存在，返回true，同时返回记录信息的具体值
         //如果没有找到，返回false，这时的返回struct是随机值，不应该被访问
-        std::pair<bool, Info> Find(const Key &key) {
+        std::pair<bool, std::pair<Key, Info>> Find(const Key &key) {
             std::pair<std::pair<int, int>, Info> tmp = RecursionFind(key);
-            if (tmp.first.first == -1)return {false, tmp.second};
-            else return {true, tmp.second};
+            if (tmp.first.first == -1)return {false, {key, tmp.second}};
+            else return {true, {key, tmp.second}};
         }
 
         //修改一个元素，参数是要修改元素的键值和修改之后的信息
@@ -671,9 +829,15 @@ namespace ds {
 //                record_memory->Write(tmp.first, new_info);
                 //the first int is the index of the block, the second is the index of the record
                 Block block;
-                if (!record_memory->Read(tmp.first.first, block))printf("%s", "read failed 5\n");
+                if (!record_memory->Read(tmp.first.first, block)) {
+                    ds::ReadException e;
+                    throw e;
+                }
                 block.record[tmp.first.second] = new_info;
-                if (!record_memory->Write(tmp.first.first, block))printf("%s", "write failed 3\n");
+                if (!record_memory->Write(tmp.first.first, block)) {
+                    ds::WriteException e;
+                    throw e;
+                }
                 return true;
             }
         }
@@ -690,6 +854,216 @@ namespace ds {
             return scale;
         }
 
+    private:
+        int BinarySearchBigger(Key array[], int size, const Key &key) {
+            if (size <= 0)return -1;
+            if (cmp.operator()(array[size - 1], key))return size;//如果说这个元素比数组中最大的元素还要大，就返回size
+            //find the answer from 0 to size-1
+            int l = 0, r = size - 1;
+            int mid;
+            while (l < r) {
+                mid = (l + r) >> 1;
+                if (cmp.operator()(array[mid], key)) {
+                    //this index may become the answer
+                    //but the boundary can be more left
+                    l = mid + 1;
+                } else if (cmp.operator()(key, array[mid])) r = mid;
+                else return mid;
+            }
+            return l;
+        }
+
+        bool
+        RecursionFindBigger(const Key &wanted, Block &block, Node &leaf, Key &key,
+                            Info &info, int &node_index, int &block_index) {
+            Node cur = root;
+            while (!cur.isleaf) {
+                int num = BinarySearchLess(cur.keys, cur.children_num, wanted);
+                if (num == -1)num = 0;
+                //num is the first element that is less than or equal to the key
+                //so we need go to the children the key stand for (num)
+//                !index_memory->Read(cur.children[index + 1], cur);
+                if (!index_memory->Read(cur.children[num], cur)) {
+                    ds::ReadException e;
+                    throw e;
+                }
+            }
+            //when the cur is leaf node come out of the circle
+            //then do binary search on that leaf node to fina the key
+            leaf = cur;//找到了那个叶节点
+            int num = BinarySearchLess(cur.keys, cur.children_num, wanted);
+            if (num == -1)num = 0;
+            if (!record_memory->Read(cur.children[num], block)) {
+                ds::ReadException e;
+                throw e;
+            }
+            int key_index = BinarySearchBigger(block.keys, block.size, wanted);
+            if (key_index == block.size) {
+                if (num + 1 >= cur.children_num) {
+                    ds::FindException e;
+                    throw e;
+                }
+                if (!record_memory->Read(cur.children[num + 1], block)) {
+                    ds::ReadException e;
+                    throw e;
+                }
+                if (block.size <= 0) {
+                    ds::FindException e;
+                    throw e;
+                }
+                key = block.keys[0];
+                info = block.record[0];
+                block_index = 0;
+                node_index = num + 1;
+                return true;
+            } else {
+                key = block.keys[key_index];
+                info = block.record[key_index];
+                block_index = key_index;
+                node_index = num;
+                return true;
+            }
+        }
+
+    public:
+        class iterator {
+        private:
+            Key key;
+            Info info;
+            BPlusTree<Key, Info, KeyCompare> *this_bpt = nullptr;
+            Node leaf_node;//所在的leaf node
+            Block block;//所在的block
+            int block_index;//在block中的标号
+            int node_index;
+            bool at_end = false;
+        public:
+            iterator(BPlusTree<Key, Info, KeyCompare> *bpt) {
+                this_bpt = bpt;
+            }
+
+            iterator operator++(int x) {
+                iterator tmp = *this;
+                if (this_bpt == nullptr) {
+                    ds::InvalidIterator e;
+                    throw e;
+                }
+                if (block_index == block.size - 1) {
+                    //我们需要读下一块
+                    if (node_index == leaf_node.children_num - 1) {
+                        //我们需要找到下一个leaf node
+                        if (at_end) {
+                            ds::IteratorOutBound e;
+                            throw e;
+                        }
+                        if (leaf_node.nxt == -1) {
+                            at_end = true;
+                            return *this;
+                        }
+                        if (!this_bpt->index_memory.Read(leaf_node.nxt, leaf_node)) {
+                            ds::ReadException e;
+                            throw e;
+                        }
+                        if (!this_bpt->record_memory.Read(leaf_node.children[0], block)) {
+                            ds::ReadException e;
+                            throw e;
+                        }
+                        node_index = 0;//block在这个node中是第几块
+                        block_index = 0;//这个key值是第几个
+                        info = block.record[0];
+                        key = block.keys[0];
+                        return tmp;
+                    } else {
+                        if (!this_bpt->record_memory.Read(leaf_node.children[node_index + 1], block)) {
+                            ds::ReadException e;
+                            throw e;
+                        }
+                        node_index += 1;//block在这个node中是第几块
+                        block_index = 0;//这个key值是第几个
+                        info = block.record[0];
+                        key = block.keys[0];
+                        return tmp;
+                    }
+                } else {
+                    block_index += 1;//这个key值是第几个
+                    info = block.record[block_index];
+                    key = block.keys[block_index];
+                    return tmp;
+                }
+            }//后缀的++
+
+            iterator operator++() {
+                if (this_bpt == nullptr) {
+                    ds::InvalidIterator e;
+                    throw e;
+                }
+                if (block_index == block.size - 1) {
+                    //我们需要读下一块
+                    if (node_index == leaf_node.children_num - 1) {
+                        //我们需要找到下一个leaf node
+                        if (at_end) {
+                            ds::IteratorOutBound e;
+                            throw e;
+                        }
+                        if (leaf_node.nxt == -1) {
+                            at_end = true;
+                            return *this;
+                        }
+                        if (!this_bpt->index_memory->Read(leaf_node.nxt, leaf_node)) {
+                            ds::ReadException e;
+                            throw e;
+                        }
+                        if (!this_bpt->record_memory->Read(leaf_node.children[0], block)) {
+                            ds::ReadException e;
+                            throw e;
+                        }
+                        node_index = 0;//block在这个node中是第几块
+                        block_index = 0;//这个key值是第几个
+                        info = block.record[0];
+                        key = block.keys[0];
+                        return *this;
+                    } else {
+                        if (!this_bpt->record_memory->Read(leaf_node.children[node_index + 1], block)) {
+                            ds::ReadException e;
+                            throw e;
+                        }
+                        node_index += 1;//block在这个node中是第几块
+                        block_index = 0;//这个key值是第几个
+                        info = block.record[0];
+                        key = block.keys[0];
+                        return *this;
+                    }
+                } else {
+                    block_index += 1;//这个key值是第几个
+                    info = block.record[block_index];
+                    key = block.keys[block_index];
+                    return *this;
+                }
+            }
+
+            friend BPlusTree<Key, Info, KeyCompare>::iterator
+            BPlusTree<Key, Info, KeyCompare>::FindBigger(const Key &wanted);
+
+            std::pair<Key, Info> operator*() {
+                if (at_end) {
+                    ds::InvalidIterator e;
+                    throw e;
+                }
+                return {key, info};
+            }
+        };
+
+        //返回指向比key更大的
+        iterator FindBigger(const Key &wanted) {
+            iterator iter(this);
+            bool find = RecursionFindBigger(wanted, iter.block, iter.leaf_node, iter.key, iter.info, iter.node_index,
+                                            iter.block_index);
+            if (!find) {
+                ds::FindException e;
+                throw e;
+            }
+            iter.at_end = false;
+            return iter;
+        }
     };
 }
 #endif //UNTITLED2_BPLUSTREE_H
