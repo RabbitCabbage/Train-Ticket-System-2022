@@ -2,6 +2,7 @@
 #include "tools.hpp"
 #include "BPlusTree.h"
 #include <iostream>
+#include <random>
 
 void file() {
     freopen("../testdata/basic_1/1.in", "r", stdin);
@@ -75,19 +76,13 @@ void logic_test() {
     }
 }
 
-using namespace hnyls2002;
-
-ds::BPlusTree<int, fstr<200> > mp("../data/index", "../data/record");
+static ds::BPlusTree<int, hnyls2002::fstr<200> > mp("../data/index", "../data/record");
 
 void show() {
     std::cout << "size = " << mp.GetSize() << std::endl;
-    for (int i = 1; i <= 1000; ++i) {
-        auto it = mp.Find(i);
-        if (it.first)std::cout << i << " " << it.second << std::endl;
-    }
+    auto it = mp.FindBigger(0);
 }
 
-#include <random>
 
 void add(int l, int r, int len) {
     srand((unsigned) time(NULL));
@@ -110,27 +105,25 @@ void erase(int l, int r) {
 }
 
 int main() {
+
+    clock_t sts = clock();
+
+    using namespace hnyls2002;
+
     srand((unsigned) time(NULL));
-    for (int i = 1; i <= 100; ++i) {
-        std::string tmp;
-        for (int j = 1; j <= 100; ++j)
-            tmp += 'a' + rand() % 26;
-        mp.Insert(i, tmp);
-        std::cout << "size = " << mp.GetSize() << std::endl;
-    }
-    for (int i = 1; i <= 100; ++i) {
-        auto it = mp.Remove(i);
-        if (it)std::cout << "Success\n";
-        else std::cout << "Fail\n";
-        std::cout << "size = " << mp.GetSize() << std::endl;
-    }
-    /*std::string cmd;
+
+    std::string cmd;
+
     while (std::getline(std::cin, cmd)) {
         std::cout << "Commander is " << cmd << "\n";
         auto arg = split_cmd(cmd, ' ');
         if (arg[0] == "add")add(std::stoi(arg[1]), std::stoi(arg[2]), std::stoi(arg[3]));
         else if (arg[0] == "erase")erase(std::stoi(arg[1]), std::stoi(arg[2]));
         else if (arg[0] == "show")show();
-    }*/
+    }
+
+    clock_t end = clock();
+    std::cout << (end - sts) / CLOCKS_PER_SEC << std::endl;
+
     return 0;
 }

@@ -7,7 +7,7 @@
 
 #include <fstream>
 #include <cstring>
-
+#include "FileException.h"
 namespace ds {
     template<typename T>
     class MemoryRiver {
@@ -24,7 +24,10 @@ namespace ds {
                 file.clear();
                 file.open(file_name, std::ios::out | std::ios::app);
             }
-            if (!file.is_open())printf("%s", "open failed 1\n");
+            if (!file.is_open()){
+                ds::OpenException e;
+                throw e;
+            }
             file.close();
         }
 
@@ -38,7 +41,10 @@ namespace ds {
 //            if(file.fail())printf("%s","clear error\n");
             file.open(file_name);
 //            if(file.fail())printf("%s","open error\n");
-            if (!file.is_open())printf("%s", "open failed 2\n");
+            if (!file.is_open()){
+                ds::OpenException e;
+                throw e;
+            }
             file.seekp(index,std::ios::beg);
 //            if(file.fail())printf("%s","seek error\n");
             file.write(reinterpret_cast<const char *>(&t), sizeof(T));
@@ -54,7 +60,10 @@ namespace ds {
             std::fstream file;
             file.clear();
             file.open(file_name);
-            if (!file.is_open())printf("%s", "open failed 3\n");
+            if (!file.is_open()){
+                ds::OpenException e;
+                throw e;
+            }
             file.seekg(index);
             file.read(reinterpret_cast<char *>(&res), sizeof(T));
             if (file.fail()) {
@@ -70,11 +79,17 @@ namespace ds {
             //write a T at the end of the file and return the location writing in
             file.clear();
             file.open(file_name);
-            if (!file.is_open())printf("%s", "open failed 4\n");
+            if (!file.is_open()){
+                ds::OpenException e;
+                throw e;
+            }
             file.seekp(0, std::ios::end);
             int location = file.tellp();
             file.write(reinterpret_cast<const char *>(&t), sizeof(T));
-            if (file.fail())printf("mr append failed\n");
+            if (file.fail()){
+                ds::AppendException e;
+                throw e;
+            }
             file.close();
             return location;
         }
@@ -82,7 +97,10 @@ namespace ds {
             std::fstream file;
             file.clear();
             file.open(file_name);
-            if (!file.is_open())printf("%s", "open failed 4\n");
+            if (!file.is_open()){
+                ds::OpenException e;
+                throw e;
+            }
             file.seekp(0, std::ios::end);
             int location = file.tellp();
             file.close();
