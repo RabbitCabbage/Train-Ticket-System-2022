@@ -81,6 +81,8 @@ static ds::BPlusTree<int, hnyls2002::fstr<200> > mp("../data/index", "../data/re
 void show() {
     std::cout << "size = " << mp.GetSize() << std::endl;
     auto it = mp.FindBigger(0);
+    for (; !it.AtEnd(); ++it)
+        std::cout << (*it).first << " " << (*it).second << std::endl;
 }
 
 
