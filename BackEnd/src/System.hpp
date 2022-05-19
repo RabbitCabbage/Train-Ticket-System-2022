@@ -5,6 +5,7 @@
 #include "../lib/vector.hpp"
 #include "../lib/linked_hashmap.hpp"
 #include "../lib/tools.hpp"
+#include "../db/BPlusTree.h"
 #include "Commander.hpp"
 
 #include<map>
@@ -39,7 +40,20 @@ namespace hnyls2002 {
             }
         };
 
-        bptree<fstr<UserNameMax>, UserInfo> UserDb;
+    public:
+        System() : UserDb("index2", "record2"),
+                   TrainDb("index1", "record1"),
+                   DayTrainDb("index3", "record3"),
+                   TrainSet("index4", "record4"),
+                   OrderDb("index5", "record5"),
+                   PendDb("index6", "record6") {
+        }
+
+    private:
+
+        ds::BPlusTree<fstr<UserNameMax>, UserInfo> UserDb;
+        //bptree<fstr<UserNameMax>, UserInfo> UserDb;
+
         sjtu::map<fstr<UserNameMax>, bool> Logged;
         // 登录状态用一颗内存中的map，登录有second=true，没有登录则节点不存在（记得删除）
 
@@ -56,7 +70,8 @@ namespace hnyls2002 {
             int TimeStamp{};// 记录发布这个火车的时间戳，相当于一个TrainID
         };
 
-        bptree<fstr<TrainIDMax>, TrainInfo> TrainDb;
+        ds::BPlusTree<fstr<TrainIDMax>, TrainInfo> TrainDb;
+        //bptree<fstr<TrainIDMax>, TrainInfo> TrainDb;
 
         struct DayTrainInfo {
             int RemainSeats[StNumMax]{};// 第1项为SeatNum，以此类推
@@ -73,11 +88,14 @@ namespace hnyls2002 {
             }
         };
 
-        bptree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo> DayTrainDb;
+        ds::BPlusTree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo> DayTrainDb;
+        //bptree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo> DayTrainDb;
 
         // 对于每一个车站，存储有多少辆火车经过它 {站名，序号} 序号采用发布这个火车时的时间戳
         // TrainSet 里面可以用来存这是第几个站，会好很多!!!
-        bptree<std::pair<fstr<StNameMax>, int>, std::pair<fstr<TrainIDMax>, int> > TrainSet;
+
+        ds::BPlusTree<std::pair<fstr<StNameMax>, int>, std::pair<fstr<TrainIDMax>, int> > TrainSet;
+        // bptree<std::pair<fstr<StNameMax>, int>, std::pair<fstr<TrainIDMax>, int> > TrainSet;
 
 
         //reference to stackoverflow
@@ -92,6 +110,7 @@ namespace hnyls2002 {
                                                          &System::clean, &System::exit};
 
     public:
+
         ret_type Opt(const std::string &str) {
             CmdType a = Parser(str);
             return (this->*func[a.FuncID])(a);
@@ -100,21 +119,22 @@ namespace hnyls2002 {
     private:
 
         ret_type add_user(const CmdType &arg) {
-            if (!UserDb.empty()) { // 不是第一次创建用户时
+            if (UserDb.GetSize()) { // 不是第一次创建用户时
                 if (Logged.find(arg['c']) == Logged.end())return ret_value(-1);// 没有登录
                 if (UserDb[arg['c']].privilege.to_int() <= std::stoi(arg['g']))return ret_value(-1);// 权限不满足要求
-                if (UserDb.find(arg['u']) != UserDb.end())return ret_value(-1);// 已经存在用户u
+                if (UserDb.Find(arg['u']).first)return ret_value(-1);// 已经存在用户u
             }
             UserInfo User;
             User.UserName = arg['u'], User.Passwd = arg['p'], User.Name = arg['n'];
             User.mailAdd = arg['m'], User.privilege = arg['g'];
             User.OrderNum = 0;
-            UserDb[arg['u']] = User;
+            //UserDb[arg['u']] = User;
+            UserDb.Modify(arg['u'], User);
             return ret_value(0);
         }
 
         ret_type login(const CmdType &arg) {
-            if (UserDb.find(arg['u']) == UserDb.end())return ret_value(-1);// 用户不存在
+            if (!UserDb.Find(arg['u']).first)return ret_value(-1);// 用户不存在
             if (Logged.find(arg['u']) != Logged.end())return ret_value(-1);// 用户已经登录
             if (UserDb[arg['u']].Passwd != arg['p'])return ret_value(-1);// 密码不对
             Logged[arg['u']] = true;
@@ -129,7 +149,7 @@ namespace hnyls2002 {
 
         bool JudgeUserQM(const CmdType &arg) {// 用户c要查询（修改）用户u的时候
             if (Logged.find(arg['c']) == Logged.end())return false;// 没有登录
-            if (UserDb.find(arg['u']) == UserDb.end())return false;// 没有用户u
+            if (!UserDb.Find(arg['u']).first)return false;// 没有用户u
             if (arg['u'] == arg['c'])return true;// 用户名相同，不需要判断权限（坑！！！）
             if (UserDb[arg['c']].privilege.to_int() <= UserDb[arg['u']].privilege.to_int())return false;// 不满足权限要求
             return true;
@@ -149,12 +169,13 @@ namespace hnyls2002 {
             if (!arg['n'].empty())User.Name = arg['n'];
             if (!arg['m'].empty())User.mailAdd = arg['m'];
             if (!arg['g'].empty())User.privilege = arg['g'];
-            UserDb[arg['u']] = User;
+            //UserDb[arg['u']] = User;
+            UserDb.Modify(arg['u'], User);
             return ret_type{User.to_string()};
         }
 
         ret_type add_train(const CmdType &arg) {
-            if (TrainDb.find(arg['i']) != TrainDb.end())return ret_value(-1);// 已经存在，添加失败
+            if (TrainDb.Find(arg['i']).first)return ret_value(-1);// 已经存在，添加失败
             TrainInfo Train;
             Train.TrainID = arg['i'];
             Train.StNum = std::stoi(arg['n']);
@@ -193,40 +214,44 @@ namespace hnyls2002 {
                 if (i == 1)Train.TimeTable[i].second = BasicTime;
             }
 
-            TrainDb[Train.TrainID] = Train;
+            //TrainDb[Train.TrainID] = Train;
+            TrainDb.Modify(Train.TrainID, Train);
 
             return ret_value(0);
         }
 
         ret_type delete_train(const CmdType &arg) {
-            if (TrainDb.find(arg['i']) == TrainDb.end())return ret_value(-1);// 没有这个车次
+            if (!TrainDb.Find(arg['i']).first)return ret_value(-1);// 没有这个车次
             if (TrainDb[arg['i']].is_released)return ret_value(-1);// 已经发布了
-            TrainDb.erase(TrainDb.find(arg['i']));
+            TrainDb.Remove(arg['i']);
             return ret_value(0);
         }
 
         ret_type release_train(const CmdType &arg) {// 先不把DayTrain加进去，有购票的时候再加？
-            if (TrainDb.find(arg['i']) == TrainDb.end())return ret_value(-1);// 没有找到这辆车
+            if (!TrainDb.Find(arg['i']).first)return ret_value(-1);// 没有找到这辆车
             auto Train = TrainDb[arg['i']]; // 不采用引用的形式，不便于B+树的操作
             if (Train.is_released)return ret_value(-1);// 已经发布了
             Train.is_released = true;
-            TrainDb[arg['i']] = Train;
+            //TrainDb[arg['i']] = Train;
+            TrainDb.Modify(arg['i'], Train);
 
             // 火车发布了，就可以买票了，所以把这列车的时间戳加入TrainSet
-            for (int i = 1; i <= Train.StNum; ++i)
-                TrainSet[{Train.StName[i], Train.TimeStamp}] = {Train.TrainID, i};
+            for (int i = 1; i <= Train.StNum; ++i) {
+                //TrainSet[{Train.StName[i], Train.TimeStamp}] = {Train.TrainID, i};
+                TrainSet.Modify({Train.StName[i], Train.TimeStamp}, {Train.TrainID, i});
+            }
             return ret_value(0);
         }
 
         ret_type query_train(const CmdType &arg) {
-            if (TrainDb.find(arg['i']) == TrainDb.end())return ret_value(-1);// 没有找到这辆车
+            if (!TrainDb.Find(arg['i']).first)return ret_value(-1);// 没有找到这辆车
             TrainInfo Train = TrainDb[arg['i']];
             Date Day = arg['d'];
             if (Day < Train.SaleDate.first || Train.SaleDate.second < Day)return ret_value(-1);// 这段时间不发车
             // 注意格式
             bool is_in = true;
             DayTrainInfo DayTrain;
-            if (DayTrainDb.find({arg['i'], arg['d']}) == DayTrainDb.end())is_in = false;
+            if (!DayTrainDb.Find({arg['i'], arg['d']}).first)is_in = false;
             if (is_in) DayTrain = DayTrainDb[{arg['i'], arg['d']}];
 
             ret_type ret;
@@ -278,7 +303,7 @@ namespace hnyls2002 {
             Date BuyDate = Date(Train.StartTime.DayStep(IntervalDays));
             if (BuyDate < Train.SaleDate.first)return {-1, ret};// 售票区间前
             if (Train.SaleDate.second < BuyDate)return {-2, ret};// 售票区间后
-            if (DayTrainDb.find({Train.TrainID, BuyDate}) != DayTrainDb.end())
+            if (DayTrainDb.Find({Train.TrainID, BuyDate}).first)
                 ret.RemainSeat = DayTrainDb[{Train.TrainID, BuyDate}].Get_Remain(pl, pr);
             else ret.RemainSeat = Train.SeatNum;// 没有实例化
             //if (!ret.RemainSeat)return {-3, ret};// 没有票了
@@ -304,11 +329,11 @@ namespace hnyls2002 {
         }
 
         ret_type query_ticket(const CmdType &arg) {
-            auto it = TrainSet.lower_bound({arg['s'], 0});
+            auto it = TrainSet.FindBigger({arg['s'], 0});
             sjtu::vector<TicketType> tickets;
-            for (; it != TrainSet.end() && it->first.first == arg['s']; ++it) {// 这里需要访问经过起点站的所有车次
-                auto Train = TrainDb[it->second.first];
-                auto pl = it->second.second;
+            for (; !it.AtEnd() && (*it).first.first == arg['s']; ++it) {// 这里需要访问经过起点站的所有车次
+                auto Train = TrainDb[(*it).second.first];
+                auto pl = (*it).second.second;
                 auto pr = CheckTrain(Train, pl, arg['t']);
                 if (!pr)continue;// 查询车次是否合法
                 auto tik = Get_Ticket(Train, pl, pr, arg['d']);
@@ -345,13 +370,13 @@ namespace hnyls2002 {
         }
 
         ret_type query_transfer(const CmdType &arg) {
-            auto it_s = TrainSet.lower_bound({arg['s'], 0});
-            auto it_t = TrainSet.lower_bound({arg['t'], 0});
+            auto it_s = TrainSet.FindBigger({arg['s'], 0});
+            auto it_t = TrainSet.FindBigger({arg['t'], 0});
             sjtu::vector<std::pair<TrainInfo, int> > lis_s, lis_t;
-            for (; it_s != TrainSet.end() && it_s->first.first == arg['s']; ++it_s)
-                lis_s.push_back({TrainDb[it_s->second.first], it_s->second.second});
-            for (; it_t != TrainSet.end() && it_t->first.first == arg['t']; ++it_t)
-                lis_t.push_back({TrainDb[it_t->second.first], it_t->second.second});
+            for (; !it_s.AtEnd() && (*it_s).first.first == arg['s']; ++it_s)
+                lis_s.push_back({TrainDb[(*it_s).second.first], (*it_s).second.second});
+            for (; !it_t.AtEnd() && (*it_t).first.first == arg['t']; ++it_t)
+                lis_t.push_back({TrainDb[(*it_t).second.first], (*it_t).second.second});
             // 得到了两个list
             TransType tik;
             bool flag = false;
@@ -406,33 +431,36 @@ namespace hnyls2002 {
             int pl{}, pr{}, TimeStamp{};
         };
 
-        bptree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;// 第二维存这是第几个订单
+        ds::BPlusTree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;
+        //bptree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;// 第二维存这是第几个订单
 
         struct PendType {
             fstr<UserNameMax> UserName;
             int TicketNum, pl, pr, id;// 存了车站顺序和订单的编号
         };
 
-        bptree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType> PendDb;// 第二维存[-时间戳] 购票的时间戳
+        ds::BPlusTree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType> PendDb;
+        //bptree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType> PendDb;// 第二维存[-时间戳] 购票的时间戳
 
         ret_type buy_ticket(const CmdType &arg) {
             if (Logged.find(arg['u']) == Logged.end())return ret_value(-1);// 没有登录
-            if (TrainDb.find(arg['i']) == TrainDb.end())return ret_value(-1);// 没有这列车
+            if (!TrainDb.Find(arg['i']).first)return ret_value(-1);// 没有这列车
             auto Train = TrainDb[arg['i']];
             if (!Train.is_released)return ret_value(-1);// 没有被release
             int TimeStampTrain = Train.TimeStamp;
             // 可能没有这个站
-            if (TrainSet.find({arg['f'], TimeStampTrain}) == TrainSet.end())return ret_value(-1);
-            if (TrainSet.find({arg['t'], TimeStampTrain}) == TrainSet.end())return ret_value(-1);
+            if (!TrainSet.Find({arg['f'], TimeStampTrain}).first)return ret_value(-1);
+            if (!TrainSet.Find({arg['t'], TimeStampTrain}).first)return ret_value(-1);
             int pl = TrainSet[{arg['f'], TimeStampTrain}].second, pr = TrainSet[{arg['t'], TimeStampTrain}].second;
             int IntervalDays = GetDate(Train, pl, arg['d']);
             Date Day = Date(Train.StartTime.DayStep(IntervalDays));
             if (Day < Train.SaleDate.first || Train.SaleDate.second < Day)return ret_value(-1);// 不在区间内
-            if (DayTrainDb.find({Train.TrainID, Day}) == DayTrainDb.end()) {// 没有实例化，现在实例化
+            if (!DayTrainDb.Find({Train.TrainID, Day}).first) {// 没有实例化，现在实例化
                 DayTrainInfo tmp;
                 for (int i = 1; i <= Train.StNum; ++i)
                     tmp.RemainSeats[i] = Train.SeatNum;
-                DayTrainDb[{Train.TrainID, Day}] = tmp;
+                //DayTrainDb[{Train.TrainID, Day}] = tmp;
+                DayTrainDb.Modify({Train.TrainID, Day}, tmp);
             }
             auto DayTrain = DayTrainDb[{Train.TrainID, Day}];
             auto User = UserDb[{arg['u']}];
@@ -442,11 +470,13 @@ namespace hnyls2002 {
             Order order;
             if (RemainSeat >= TicketNum) {// 可以买票
                 DayTrain.Modify(pl, pr, TicketNum);
-                DayTrainDb[{Train.TrainID, Day}] = DayTrain;
+                //DayTrainDb[{Train.TrainID, Day}] = DayTrain;
+                DayTrainDb.Modify({Train.TrainID, Day}, DayTrain);
                 order.Status = success;
             } else {
-                PendDb[{{Train.TrainID, Day}, arg.TimeStamp}] =
-                        PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1};
+                //PendDb[{{Train.TrainID, Day}, arg.TimeStamp}] = PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1};
+                PendDb.Modify({{Train.TrainID, Day}, arg.TimeStamp},
+                              PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1});
                 order.Status = pending;
             }
             TicketType tik;
@@ -458,8 +488,10 @@ namespace hnyls2002 {
             tik.TrainID = arg['i'];
             order.tik = tik, order.From = arg['f'], order.To = arg['t'], order.Day = Day;
             order.pl = pl, order.pr = pr, order.TimeStamp = arg.TimeStamp;
-            OrderDb[{User.UserName, -(++User.OrderNum)}] = order;
-            UserDb[{arg['u']}] = User;
+            //OrderDb[{User.UserName, -(++User.OrderNum)}] = order;
+            OrderDb.Modify({User.UserName, -(++User.OrderNum)}, order);
+            //UserDb[arg['u']] = User;
+            UserDb.Modify(arg['u'], User);
             if (order.Status == success)return ret_type{std::to_string(tik.Cost * TicketNum)};
             else return ret_type{"queue"};
         }
@@ -467,12 +499,12 @@ namespace hnyls2002 {
         ret_type query_order(const CmdType &arg) {
             if (Logged.find(arg['u']) == Logged.end())return ret_value(-1);// 没有登录
             ret_type ret;
-            auto it = OrderDb.lower_bound({arg['u'], -0x3f3f3f3f});
+            auto it = OrderDb.FindBigger({arg['u'], -0x3f3f3f3f});
             ret.push_back(std::to_string(UserDb[arg['u']].OrderNum));
-            for (; it->first.first == arg['u']; ++it) {
+            for (; (*it).first.first == arg['u']; ++it) {
                 std::string tmp;
-                tmp += StatusToString[it->second.Status] + ' ';
-                tmp += it->second.tik.to_string(it->second.From.to_string(), it->second.To.to_string());
+                tmp += StatusToString[(*it).second.Status] + ' ';
+                tmp += (*it).second.tik.to_string((*it).second.From.to_string(), (*it).second.To.to_string());
                 ret.push_back(tmp);
             }
             return ret;
@@ -488,25 +520,27 @@ namespace hnyls2002 {
             bool flag = true;
             if (order.Status == pending)flag = false;
             order.Status = refunded;
-            OrderDb[{arg['u'], -id}] = order;
+            //OrderDb[{arg['u'], -id}] = order;
+            OrderDb.Modify({arg['u'], -id}, order);
 
             std::pair<fstr<TrainIDMax>, Date> info = {order.tik.TrainID, order.Day};
             if (!flag) {// 为假说明要把这个退订的候补在PendDb中删除
-                PendDb.erase(PendDb.find({info, order.TimeStamp}));
+                PendDb.Remove({info, order.TimeStamp});
             } else {// 为真代表会有多的票空出来
                 auto DayTrain = DayTrainDb[info];
                 DayTrain.Modify(order.pl, order.pr, -order.tik.RemainSeat);
 
                 // 处理候补的订单
-                auto it = PendDb.lower_bound({info, 0});
-                for (; it->first.first == info;) {
-                    int RemainTickets = DayTrain.Get_Remain(it->second.pl, it->second.pr);
-                    if (RemainTickets >= it->second.TicketNum) {// 候补成功
-                        auto order2 = OrderDb[{it->second.UserName, -it->second.id}];
+                auto it = PendDb.FindBigger({info, 0});
+                for (; (*it).first.first == info;) {
+                    int RemainTickets = DayTrain.Get_Remain((*it).second.pl, (*it).second.pr);
+                    if (RemainTickets >= (*it).second.TicketNum) {// 候补成功
+                        auto order2 = OrderDb[{(*it).second.UserName, -(*it).second.id}];
                         order2.Status = success;
-                        OrderDb[{it->second.UserName, -it->second.id}] = order2;
-                        DayTrain.Modify(it->second.pl, it->second.pr, it->second.TicketNum);
-                        PendDb.erase(it++);// 可能一次删除很多个
+                        OrderDb[{(*it).second.UserName, -(*it).second.id}] = order2;
+                        DayTrain.Modify((*it).second.pl, (*it).second.pr, (*it).second.TicketNum);
+                        PendDb.Remove((*it).first);// 可能一次删除很多个
+                        ++it;
                     } else ++it;
                 }
                 DayTrainDb[info] = DayTrain;

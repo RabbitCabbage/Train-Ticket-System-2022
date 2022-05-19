@@ -142,6 +142,7 @@ int main() {
         else if (arg[0] == "erase")erase(std::stoi(arg[1]), std::stoi(arg[2]));
         else if (arg[0] == "show")show();
         else if (arg[0] == "exit")break;
+        else if (arg[0] == "clean")mp.Clear();
     }
 
     clock_t end = clock();

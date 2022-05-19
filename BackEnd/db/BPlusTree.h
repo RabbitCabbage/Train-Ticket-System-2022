@@ -16,8 +16,8 @@ namespace ds {
     class BPlusTree {
         //以下两个值暂定，可能以后根据实际情况更改
     public:
-        static const int max_key_num = 5;//一个数据块最多记有多少个键值
-        static const int max_rcd_num = 5;//一个数据块最多存多少条记录
+        static const int max_key_num = 500;//一个数据块最多记有多少个键值
+        static const int max_rcd_num = 500;//一个数据块最多存多少条记录
 
 
         struct Node {
@@ -833,6 +833,12 @@ namespace ds {
             std::pair<std::pair<int, int>, Info> tmp = RecursionFind(key);
             if (tmp.first.first == -1)return {false, {key, tmp.second}};
             else return {true, {key, tmp.second}};
+        }
+
+        Info operator[](const Key &key) {
+            auto tmp = Find(key);
+            if (!tmp.first)throw ds::FindException();
+            return tmp.second.second;
         }
 
         //修改一个元素，参数是要修改元素的键值和修改之后的信息
