@@ -820,6 +820,7 @@ namespace ds {
             bool flag;
             Node tmp_parent;
             Node cur = root;
+            if (root.children_num == 0)return false;
             RecursionRemove(cur, key, flag, tmp_parent);
             scale -= (int) flag;
             return flag;
@@ -861,8 +862,12 @@ namespace ds {
         //清空B+树的有关文件
         void Clear() {
             scale = 0;
-            root.info.isleaf = true;
-            root.info.children_num = 0;
+            root.isleaf = true;
+            root.children_num = 0;
+            if (!index_memory->Write(root_index, root)) {
+                ds::WriteException e;
+                throw e;
+            }
         }
 
         //返回现在总共有多少条记录
