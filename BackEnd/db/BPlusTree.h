@@ -926,8 +926,7 @@ namespace ds {
             int key_index = BinarySearchBigger(block.keys, block.size, wanted);
             if (key_index == block.size) {
                 if (num + 1 >= cur.children_num) {
-                    ds::FindException e;
-                    throw e;
+                    return false;
                 }
                 if (!record_memory->Read(cur.children[num + 1], block)) {
                     ds::ReadException e;
