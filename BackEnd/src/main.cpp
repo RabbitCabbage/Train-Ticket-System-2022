@@ -81,28 +81,47 @@ static ds::BPlusTree<int, hnyls2002::fstr<200> > mp("../data/index", "../data/re
 void show() {
     std::cout << "size = " << mp.GetSize() << std::endl;
     auto it = mp.FindBigger(0);
+    if (!it.AtEnd())std::cout << "Not at end" << std::endl;
     for (; !it.AtEnd(); ++it)
-        std::cout << (*it).first << " " << (*it).second << std::endl;
+        std::cout << (*it).first << " , " << (*it).second << std::endl;
 }
 
 
 void add(int l, int r, int len) {
     srand((unsigned) time(NULL));
+    int las = -1, status = 0;
     for (int i = l; i <= r; ++i) {
         std::string tmp;
-        for (int j = 1; j <= len; ++j) {
+        for (int j = 1; j <= len; ++j)
             tmp += 'a' + rand() % 26;
+        auto res = mp.Insert(i, tmp);
+        if (las == -1)las = i, status = res;
+        if (res != status) {
+            std::cout << "Inserting...\n" << (status ? "success" : "failed") << " : from " << las << " to " << i - 1
+                      << "\n";
+            las = i, status = res;
         }
-        mp.Insert(i, tmp);
+        if (i == r) {
+            std::cout << "Inserting...\n" << (status ? "success" : "failed") << " : from " << las << " to " << i
+                      << "\n";
+        }
     }
 }
 
 void erase(int l, int r) {
-    std::cerr << "Erasing\n";
+    int las = -1, status = 0;
     for (int i = l; i <= r; ++i) {
         auto res = mp.Remove(i);
-        if (res)std::cout << "erase " << i << " Success\n";
-        else std::cout << "erase " << i << "Failed\n";
+        if (las == -1)las = i, status = res;
+        if (res != status) {
+            std::cout << "Inserting...\n" << (status ? "success" : "failed") << " : from " << las << " to " << i - 1
+                      << "\n";
+            las = i, status = res;
+        }
+        if (i == r) {
+            std::cout << "Inserting...\n" << (status ? "success" : "failed") << " : from " << las << " to " << i
+                      << "\n";
+        }
     }
 }
 
@@ -126,7 +145,7 @@ int main() {
     }
 
     clock_t end = clock();
-    std::cout << (end - sts) / CLOCKS_PER_SEC << std::endl;
+    std::cout << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 
     return 0;
 }
