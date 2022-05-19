@@ -508,7 +508,9 @@ namespace hnyls2002 {
         ret_type query_order(const CmdType &arg) {
             if (Logged.find(arg['u']) == Logged.end())return ret_value(-1);// 没有登录
             ret_type ret;
+            std::cerr << "============================" << std::endl;
             auto it = OrderDb.FindBigger({arg['u'], -0x3f3f3f3f});
+            std::cerr << "============================" << std::endl;
             ret.push_back(std::to_string(UserDb[arg['u']].OrderNum));
             for (; (*it).first.first == arg['u']; ++it) {
                 std::string tmp;

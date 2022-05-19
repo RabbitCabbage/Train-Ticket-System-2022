@@ -89,6 +89,12 @@ void show() {
         std::cout << (*it).first << " , " << (*it).second << std::endl;
 }
 
+void lower_bound(int x) {
+    auto it = mp.FindBigger(x);
+    if (!it.AtEnd())std::cout << "Not at end" << std::endl;
+    for (; !it.AtEnd(); ++it)
+        std::cout << (*it).first << " , " << (*it).second << std::endl;
+}
 
 void add(int l, int r, int len) {
     srand((unsigned) time(NULL));
@@ -145,6 +151,7 @@ void test_bptree() {
         else if (arg[0] == "show")show();
         else if (arg[0] == "exit")break;
         else if (arg[0] == "clear")mp.Clear();
+        else if (arg[0] == "lower_bound")lower_bound(std::stoi(arg[1]));
     }
 
     clock_t end = clock();
