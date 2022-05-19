@@ -54,7 +54,7 @@ namespace ds {
         char *index_file;
         char *record_file;
         Node root;
-        int root_index;
+        int root_index = -1;
         int scale;
 
         //this is a tool function to do binary search
@@ -773,9 +773,11 @@ namespace ds {
                     ds::ReadException e;
                     throw e;
                 }
-                if (!index_memory->Read(root_index, root)) {
-                    ds::ReadException e;
-                    throw e;
+                if (root_index != -1) {
+                    if (!index_memory->Read(root_index, root)) {
+                        ds::ReadException e;
+                        throw e;
+                    }
                 }//read the information for the root;
 //                int_memory->Read(sizeof(int), root_index);
 //                int_memory->Read(root_index, root);//read the information for the root;
