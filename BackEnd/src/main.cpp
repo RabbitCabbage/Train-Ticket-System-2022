@@ -63,20 +63,23 @@ void test4() {
         std::cout << (a + i).to_string() << std::endl;
 }
 
-void logic_test() {
+void test_logic() {
+    freopen("../testdata/basic_2/my.in", "r", stdin);
+    freopen("../testdata/basic_2/my.out", "w", stdout);
+    system("rm ../data/*");
     hnyls2002::System sys;
-    freopen("../testdata/basic_1/my.in", "r", stdin);
-    freopen("../testdata/basic_1/my.out", "w", stdout);
     std::string str;
     while (getline(std::cin, str)) {
-        // std::cout << str.substr(0, 7) << " ";
+        std::cerr << "Command : " << str << std::endl;
         auto res = sys.Opt(str);
-        for (auto it: res)
+        for (auto it: res) {
             std::cout << it << std::endl;
+            std::cerr << it << std::endl;
+        }
     }
 }
 
-static ds::BPlusTree<int, hnyls2002::fstr<200> > mp("../data/index", "../data/record");
+/*static ds::BPlusTree<int, hnyls2002::fstr<200> > mp("../data/index", "../data/record");
 
 void show() {
     std::cout << "size = " << mp.GetSize() << std::endl;
@@ -125,8 +128,7 @@ void erase(int l, int r) {
     }
 }
 
-int main() {
-
+void test_bptree() {
     clock_t sts = clock();
 
     using namespace hnyls2002;
@@ -142,11 +144,15 @@ int main() {
         else if (arg[0] == "erase")erase(std::stoi(arg[1]), std::stoi(arg[2]));
         else if (arg[0] == "show")show();
         else if (arg[0] == "exit")break;
-        else if (arg[0] == "clean")mp.Clear();
+        else if (arg[0] == "clear")mp.Clear();
     }
 
     clock_t end = clock();
     std::cout << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 
+}*/
+
+int main() {
+    test_logic();
     return 0;
 }

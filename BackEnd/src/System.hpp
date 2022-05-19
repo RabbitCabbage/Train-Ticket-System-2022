@@ -41,13 +41,22 @@ namespace hnyls2002 {
         };
 
     public:
-        System() : UserDb("index2", "record2"),
-                   TrainDb("index1", "record1"),
-                   DayTrainDb("index3", "record3"),
-                   TrainSet("index4", "record4"),
-                   OrderDb("index5", "record5"),
-                   PendDb("index6", "record6") {
+        System() : UserDb("../data/index2", "../data/record2"),
+                   TrainDb("../data/index1", "../data/record1"),
+                   DayTrainDb("../data/index3", "../data/record3"),
+                   TrainSet("../data/index4", "../data/record4"),
+                   OrderDb("../data/index5", "../data/record5"),
+                   PendDb("../data/index6", "../data/record6") {
         }
+
+        /*~System() {
+            UserDb.~BPlusTree();
+            TrainDb.~BPlusTree();
+            DayTrainDb.~BPlusTree();
+            TrainDb.~BPlusTree();
+            OrderDb.~BPlusTree();
+            PendDb.~BPlusTree();
+        }*/
 
     private:
 
@@ -129,7 +138,7 @@ namespace hnyls2002 {
             User.mailAdd = arg['m'], User.privilege = arg['g'];
             User.OrderNum = 0;
             //UserDb[arg['u']] = User;
-            UserDb.Modify(arg['u'], User);
+            UserDb.Insert(arg['u'], User);
             return ret_value(0);
         }
 
@@ -215,7 +224,7 @@ namespace hnyls2002 {
             }
 
             //TrainDb[Train.TrainID] = Train;
-            TrainDb.Modify(Train.TrainID, Train);
+            TrainDb.Insert(Train.TrainID, Train);
 
             return ret_value(0);
         }
@@ -238,7 +247,7 @@ namespace hnyls2002 {
             // 火车发布了，就可以买票了，所以把这列车的时间戳加入TrainSet
             for (int i = 1; i <= Train.StNum; ++i) {
                 //TrainSet[{Train.StName[i], Train.TimeStamp}] = {Train.TrainID, i};
-                TrainSet.Modify({Train.StName[i], Train.TimeStamp}, {Train.TrainID, i});
+                TrainSet.Insert({Train.StName[i], Train.TimeStamp}, {Train.TrainID, i});
             }
             return ret_value(0);
         }
@@ -460,7 +469,7 @@ namespace hnyls2002 {
                 for (int i = 1; i <= Train.StNum; ++i)
                     tmp.RemainSeats[i] = Train.SeatNum;
                 //DayTrainDb[{Train.TrainID, Day}] = tmp;
-                DayTrainDb.Modify({Train.TrainID, Day}, tmp);
+                DayTrainDb.Insert({Train.TrainID, Day}, tmp);
             }
             auto DayTrain = DayTrainDb[{Train.TrainID, Day}];
             auto User = UserDb[{arg['u']}];
@@ -475,7 +484,7 @@ namespace hnyls2002 {
                 order.Status = success;
             } else {
                 //PendDb[{{Train.TrainID, Day}, arg.TimeStamp}] = PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1};
-                PendDb.Modify({{Train.TrainID, Day}, arg.TimeStamp},
+                PendDb.Insert({{Train.TrainID, Day}, arg.TimeStamp},
                               PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1});
                 order.Status = pending;
             }
@@ -489,7 +498,7 @@ namespace hnyls2002 {
             order.tik = tik, order.From = arg['f'], order.To = arg['t'], order.Day = Day;
             order.pl = pl, order.pr = pr, order.TimeStamp = arg.TimeStamp;
             //OrderDb[{User.UserName, -(++User.OrderNum)}] = order;
-            OrderDb.Modify({User.UserName, -(++User.OrderNum)}, order);
+            OrderDb.Insert({User.UserName, -(++User.OrderNum)}, order);
             //UserDb[arg['u']] = User;
             UserDb.Modify(arg['u'], User);
             if (order.Status == success)return ret_type{std::to_string(tik.Cost * TicketNum)};
