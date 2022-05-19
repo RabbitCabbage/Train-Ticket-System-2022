@@ -16,8 +16,8 @@ namespace ds {
     class BPlusTree {
         //以下两个值暂定，可能以后根据实际情况更改
     public:
-        static const int max_key_num = 500;//一个数据块最多记有多少个键值
-        static const int max_rcd_num = 500;//一个数据块最多存多少条记录
+        static const int max_key_num = 5;//一个数据块最多记有多少个键值
+        static const int max_rcd_num = 5;//一个数据块最多存多少条记录
 
 
         struct Node {
@@ -526,6 +526,7 @@ namespace ds {
                             ds::WriteException e;
                             throw e;
                         }
+                        if (block.size == 0)cur.children_num = 0;
                         if (!index_memory->Write(cur.location, cur)) {
                             ds::WriteException e;
                             throw e;
@@ -892,7 +893,7 @@ namespace ds {
         RecursionFindBigger(const Key &wanted, Block &block, Node &leaf, Key &key,
                             Info &info, int &node_index, int &block_index) {
             Node cur = root;
-            if(cur.children_num==0){
+            if (cur.children_num == 0) {
                 return false;
             }
             while (!cur.isleaf) {
