@@ -64,8 +64,8 @@ void test4() {
 }
 
 void test_logic() {
-    freopen("../testdata/basic_3/my.in", "r", stdin);
-    freopen("../testdata/basic_3/my.out", "w", stdout);
+    freopen("../testdata/basic_6/my.in", "r", stdin);
+    freopen("../testdata/basic_6/my.out", "w", stdout);
     system("rm ../data/*");
     clock_t sts = clock();
     hnyls2002::System sys;
@@ -73,6 +73,7 @@ void test_logic() {
     while (getline(std::cin, str)) {
         std::cerr << "Command : " << str << std::endl;
         auto res = sys.Opt(str);
+        //std::cout << str.substr(0, 6) << std::endl;
         for (auto it: res) {
             std::cout << it << std::endl;
             std::cerr << it << std::endl;

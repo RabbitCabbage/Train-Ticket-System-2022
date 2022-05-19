@@ -480,7 +480,7 @@ namespace hnyls2002 {
             if (RemainSeat >= TicketNum) {// 可以买票
                 DayTrain.Modify(pl, pr, TicketNum);
                 //DayTrainDb[{Train.TrainID, Day}] = DayTrain;
-                DayTrainDb.Modify({Train.TrainID, Day}, DayTrain);
+                auto res = DayTrainDb.Modify({Train.TrainID, Day}, DayTrain);
                 order.Status = success;
             } else {
                 //PendDb[{{Train.TrainID, Day}, arg.TimeStamp}] = PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1};
@@ -546,13 +546,15 @@ namespace hnyls2002 {
                     if (RemainTickets >= (*it).second.TicketNum) {// 候补成功
                         auto order2 = OrderDb[{(*it).second.UserName, -(*it).second.id}];
                         order2.Status = success;
-                        OrderDb[{(*it).second.UserName, -(*it).second.id}] = order2;
+                        //OrderDb[{(*it).second.UserName, -(*it).second.id}] = order2;
+                        OrderDb.Modify({(*it).second.UserName, -(*it).second.id}, order2);
                         DayTrain.Modify((*it).second.pl, (*it).second.pr, (*it).second.TicketNum);
                         PendDb.Remove((*it).first);// 可能一次删除很多个
                         ++it;
                     } else ++it;
                 }
-                DayTrainDb[info] = DayTrain;
+                //DayTrainDb[info] = DayTrain;
+                DayTrainDb.Modify(info, DayTrain);
             }
             return ret_value(0);
         }
