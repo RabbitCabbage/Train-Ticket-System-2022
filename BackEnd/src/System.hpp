@@ -508,11 +508,9 @@ namespace hnyls2002 {
         ret_type query_order(const CmdType &arg) {
             if (Logged.find(arg['u']) == Logged.end())return ret_value(-1);// 没有登录
             ret_type ret;
-            std::cerr << "============================" << std::endl;
             auto it = OrderDb.FindBigger({arg['u'], -0x3f3f3f3f});
-            std::cerr << "============================" << std::endl;
             ret.push_back(std::to_string(UserDb[arg['u']].OrderNum));
-            for (; (*it).first.first == arg['u']; ++it) {
+            for (; !it.AtEnd() && (*it).first.first == arg['u']; ++it) {
                 std::string tmp;
                 tmp += StatusToString[(*it).second.Status] + ' ';
                 tmp += (*it).second.tik.to_string((*it).second.From.to_string(), (*it).second.To.to_string());
@@ -543,7 +541,7 @@ namespace hnyls2002 {
 
                 // 处理候补的订单
                 auto it = PendDb.FindBigger({info, 0});
-                for (; (*it).first.first == info;) {
+                for (; !it.AtEnd() && (*it).first.first == info;) {
                     int RemainTickets = DayTrain.Get_Remain((*it).second.pl, (*it).second.pr);
                     if (RemainTickets >= (*it).second.TicketNum) {// 候补成功
                         auto order2 = OrderDb[{(*it).second.UserName, -(*it).second.id}];

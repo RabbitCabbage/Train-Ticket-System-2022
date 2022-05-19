@@ -64,9 +64,10 @@ void test4() {
 }
 
 void test_logic() {
-    freopen("../testdata/basic_2/my.in", "r", stdin);
-    freopen("../testdata/basic_2/my.out", "w", stdout);
+    freopen("../testdata/basic_3/my.in", "r", stdin);
+    freopen("../testdata/basic_3/my.out", "w", stdout);
     system("rm ../data/*");
+    clock_t sts = clock();
     hnyls2002::System sys;
     std::string str;
     while (getline(std::cin, str)) {
@@ -77,6 +78,8 @@ void test_logic() {
             std::cerr << it << std::endl;
         }
     }
+    clock_t end = clock();
+    std::cerr << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 }
 
 /*static ds::BPlusTree<int, hnyls2002::fstr<200> > mp("../data/index", "../data/record");
