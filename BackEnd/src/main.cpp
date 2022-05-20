@@ -64,25 +64,25 @@ void test4() {
 }
 
 void test_logic() {
-    freopen("./testdata/basic_2/my.in", "r", stdin);
-    freopen("./testdata/basic_2/my.out", "w", stdout);
+    freopen("../testdata/basic_4/my.in", "r", stdin);
+    freopen("../testdata/basic_4/my.out", "w", stdout);
     clock_t sts = clock();
     hnyls2002::System sys;
     std::string str;
     while (getline(std::cin, str)) {
-        std::cerr << "Command : " << str << std::endl;
+        //std::cerr << "Command : " << str << std::endl;
         auto res = sys.Opt(str);
         //std::cout << str.substr(0, 6) << std::endl;
         for (auto it: res) {
             std::cout << it << std::endl;
-            std::cerr << it << std::endl;
+            //std::cerr << it << std::endl;
         }
     }
     clock_t end = clock();
     std::cerr << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 }
 
-static ds::BPlusTree<int, hnyls2002::fstr<9000> > mp("../data/index", "../data/record");
+/*static ds::BPlusTree<int, hnyls2002::fstr<9000> > mp("../data/index", "../data/record");
 
 void show() {
     auto it = mp.FindBigger(0);
@@ -162,10 +162,9 @@ void test_bptree() {
     clock_t end = clock();
     std::cout << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 
-}
+}*/
 
 int main() {
-    //test_logic();
-    test_bptree();
+    test_logic();
     return 0;
 }

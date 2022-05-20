@@ -13,7 +13,7 @@
 
 #define bptree std::map
 
-#define STORAGE_DIR "./data/"
+#define STORAGE_DIR "../data/"
 
 namespace hnyls2002 {
 
