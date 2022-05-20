@@ -211,7 +211,7 @@ namespace ds {
                     cur.location = index_memory->FindEnd();
                     root_index = index_memory->Append(cur);
                     root = cur;
-                    success = true;
+                    //success = true;
                     return false;
                 }
                 Block block;
@@ -241,14 +241,14 @@ namespace ds {
                         ds::WriteException e;
                         throw e;
                     }
-                    success = true;//the insert is succeeded and it doesn't need to change the father;
+                    //success = true;//the insert is succeeded and it doesn't need to change the father;
                     if (key_index + 1 == 0)cur.keys[num] = block.keys[0];
                     if (!index_memory->Write(cur.location, cur)) {
                         ds::WriteException e;
                         throw e;
                     }
                     if (cur.location == root.location)root = cur;
-                    success = true;
+                    //success = true;
                     return false;//the recursion ended;
                 } else {
                     for (int i = block.size - 1; i >= key_index + 1; --i) {
@@ -279,7 +279,7 @@ namespace ds {
                         //the former child is num;
                         // so the new children should be placed in num+1;
                         AddChild(cur, block.keys[0], new_block.keys[0], new_block_loc, num);
-                        success = true;
+                        //success = true;
                         return false;
                     } else {
                         //cur need to split and tell his father that he splited
@@ -296,7 +296,7 @@ namespace ds {
                             root.nxt = root.before = -1;
                             root.location = index_memory->FindEnd();
                             root_index = index_memory->Append(root);
-                            success = true;
+                            //success = true;
                             return false;
                         }
                         return true;
@@ -325,14 +325,14 @@ namespace ds {
                         }
                         if (parent.location == root.location)root = parent;
                     }
-                    success = true;
+                    //success = true;
                     return false;//if the father don't have to change then tell the grandfather don't change;
                 } else {
                     //his parent's children is broken into two nodes
                     if (parent.children_num + 1 < max_key_num) {
                         //the children can directly added
                         AddChild(parent, cur.keys[0], the_added_children.keys[0], the_added_loc, num);
-                        success = true;
+                        //success = true;
                         return false;
                     } else {
                         //the parent node has to split and tell his father that he splited;
@@ -350,7 +350,7 @@ namespace ds {
                             root.nxt = root.before = -1;
                             root.location = index_memory->FindEnd();
                             root_index = index_memory->Append(root);
-                            success = true;
+                            //success = true;
                             return false;
                         }
                         cur = parent;//下面的cur还要用，所以换回要用的值
@@ -517,7 +517,7 @@ namespace ds {
                         throw e;
                     }
                     if (cur.location == root.location)root = cur;
-                    success = true;
+                   //success = true;
                     return false;
                 } else {
                     if (cur.location == root.location && cur.children_num == 1) {
@@ -532,7 +532,7 @@ namespace ds {
                             throw e;
                         }
                         if (cur.location == root.location)root = cur;
-                        success = true;
+                       //success = true;
                         return false;
                     }
                     //borrow a record from the brother block
@@ -568,7 +568,7 @@ namespace ds {
                                 throw e;
                             }
                             if (cur.location == root.location)root = cur;
-                            success = true;
+                           //success = true;
                             return false;
                         } else {
                             to_merge_brother = left_brother;
@@ -604,7 +604,7 @@ namespace ds {
                                 throw e;
                             }
                             if (cur.location == root.location)root = cur;
-                            success = true;
+                           //success = true;
                             return false;
                         } else {
                             to_merge_brother = right_brother;
@@ -638,7 +638,7 @@ namespace ds {
                             throw e;
                         }
                         if (cur.location == root.location)root = cur;
-                        success = true;
+                       //success = true;
                         return false;
                     } else {
                         if (!index_memory->Write(cur.location, cur)) {
@@ -666,7 +666,7 @@ namespace ds {
                         }
                         if (parent.location == root.location)root = parent;
                     }
-                    success = true;
+                   //success = true;
                     return false;//the removal suceeded and the recursion ended;
                 } else {
                     //否则的话就是需要brother，现在parent的孩子cur，需要一个brother来帮助他
@@ -678,7 +678,7 @@ namespace ds {
                     Node merged_child;
                     int merged_index;
                     if (borrow_flag) {
-                        success = true;
+                       //success = true;
                         return false;//the recursion is ended;
                     } else {
                         if (brother_to_merge_index > num) {
@@ -710,14 +710,14 @@ namespace ds {
                         if (parent.location == root.location) {
                             root = parent;
                         }
-                        success = true;
+                       //success = true;
                         return false;
                     } else {
                         if (parent.location == root.location) {
                             if (parent.children_num == 1) {
                                 root = merged_child;
                                 root_index = merged_child.location;
-                                success = true;
+                               //success = true;
                                 return false;
                                 //相当于根节点不要了
                             } else {
@@ -726,7 +726,7 @@ namespace ds {
                                     throw e;
                                 }
                                 root = parent;
-                                success = true;
+                                //success = true;
                                 return false;
                             }
                         }
@@ -806,7 +806,7 @@ namespace ds {
         //插入一个元素，参数是插入元素的键值和记录的详细信息，返回插入是否成功
         //如果说这个元素本来存在，插入失败返回false
         bool Insert(const Key &key, const Info &info) {
-            bool flag;
+            bool flag = true;
             Node tmp;
             int children_index;
             int loc;
@@ -819,7 +819,7 @@ namespace ds {
         //删除一个元素，参数是要删除元素的键值，返回是否删除成功，
         //如果这个元素在B+树中不存在就删除失败
         bool Remove(const Key &key) {
-            bool flag;
+            bool flag = true;
             Node tmp_parent;
             Node cur = root;
             if (root.children_num == 0)return false;
