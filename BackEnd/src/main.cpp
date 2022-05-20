@@ -64,8 +64,8 @@ void test4() {
 }
 
 void test_logic() {
-//    freopen("./testdata/basic_2/my.in", "r", stdin);
-//    freopen("./testdata/basic_2/my.out", "w", stdout);
+    freopen("./testdata/basic_2/my.in", "r", stdin);
+    freopen("./testdata/basic_2/my.out", "w", stdout);
     clock_t sts = clock();
     hnyls2002::System sys;
     std::string str;
@@ -82,14 +82,14 @@ void test_logic() {
     std::cerr << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 }
 
-/*static ds::BPlusTree<int, hnyls2002::fstr<200> > mp("../data/index", "../data/record");
+static ds::BPlusTree<int, hnyls2002::fstr<9000> > mp("../data/index", "../data/record");
 
 void show() {
-    std::cout << "size = " << mp.GetSize() << std::endl;
     auto it = mp.FindBigger(0);
     if (!it.AtEnd())std::cout << "Not at end" << std::endl;
     for (; !it.AtEnd(); ++it)
         std::cout << (*it).first << " , " << (*it).second << std::endl;
+    std::cout << "size = " << mp.GetSize() << std::endl;
 }
 
 void lower_bound(int x) {
@@ -126,12 +126,12 @@ void erase(int l, int r) {
         auto res = mp.Remove(i);
         if (las == -1)las = i, status = res;
         if (res != status) {
-            std::cout << "Inserting...\n" << (status ? "success" : "failed") << " : from " << las << " to " << i - 1
+            std::cout << "Erasing...\n" << (status ? "success" : "failed") << " : from " << las << " to " << i - 1
                       << "\n";
             las = i, status = res;
         }
         if (i == r) {
-            std::cout << "Inserting...\n" << (status ? "success" : "failed") << " : from " << las << " to " << i
+            std::cout << "Erasing...\n" << (status ? "success" : "failed") << " : from " << las << " to " << i
                       << "\n";
         }
     }
@@ -155,14 +155,17 @@ void test_bptree() {
         else if (arg[0] == "exit")break;
         else if (arg[0] == "clear")mp.Clear();
         else if (arg[0] == "lower_bound")lower_bound(std::stoi(arg[1]));
+        clock_t end = clock();
+        std::cout << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
     }
 
     clock_t end = clock();
     std::cout << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 
-}*/
+}
 
 int main() {
-    test_logic();
+    //test_logic();
+    test_bptree();
     return 0;
 }
