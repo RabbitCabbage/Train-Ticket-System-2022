@@ -13,6 +13,8 @@
 
 #define bptree std::map
 
+#define STORAGE_DIR "./data/"
+
 namespace hnyls2002 {
 
     class System {
@@ -41,12 +43,12 @@ namespace hnyls2002 {
         };
 
     public:
-        System() : UserDb("../data/index2", "../data/record2"),
-                   TrainDb("../data/index1", "../data/record1"),
-                   DayTrainDb("../data/index3", "../data/record3"),
-                   TrainSet("../data/index4", "../data/record4"),
-                   OrderDb("../data/index5", "../data/record5"),
-                   PendDb("../data/index6", "../data/record6") {
+        System() : UserDb(STORAGE_DIR "index2", STORAGE_DIR "record2"),
+                   TrainDb(STORAGE_DIR "index1", STORAGE_DIR "record1"),
+                   DayTrainDb(STORAGE_DIR "index3", STORAGE_DIR "record3"),
+                   TrainSet(STORAGE_DIR "index4", STORAGE_DIR "record4"),
+                   OrderDb(STORAGE_DIR "index5", STORAGE_DIR "record5"),
+                   PendDb(STORAGE_DIR "index6", STORAGE_DIR "record6") {
         }
 
         /*~System() {
