@@ -11,15 +11,11 @@
 #include <cstring>
 
 namespace ds {
-    template<typename Key, typename Info, class KeyCompare = std::less<Key>>
+    template<typename Key, typename Info, class KeyCompare = std::less<Key>, const int max_key_num = 5, const int max_rcd_num = 5>
 
     class BPlusTree {
         //以下两个值暂定，可能以后根据实际情况更改
     public:
-        static const int max_key_num = 5;//一个数据块最多记有多少个键值
-        static const int max_rcd_num = 5;//一个数据块最多存多少条记录
-
-
         struct Node {
             int nxt = -1, before = -1;// B+树叶子节点构成的的链表
             bool isleaf = true;//标记是不是叶节点
@@ -517,7 +513,7 @@ namespace ds {
                         throw e;
                     }
                     if (cur.location == root.location)root = cur;
-                   //success = true;
+                    //success = true;
                     return false;
                 } else {
                     if (cur.location == root.location && cur.children_num == 1) {
@@ -532,7 +528,7 @@ namespace ds {
                             throw e;
                         }
                         if (cur.location == root.location)root = cur;
-                       //success = true;
+                        //success = true;
                         return false;
                     }
                     //borrow a record from the brother block
@@ -568,7 +564,7 @@ namespace ds {
                                 throw e;
                             }
                             if (cur.location == root.location)root = cur;
-                           //success = true;
+                            //success = true;
                             return false;
                         } else {
                             to_merge_brother = left_brother;
@@ -604,7 +600,7 @@ namespace ds {
                                 throw e;
                             }
                             if (cur.location == root.location)root = cur;
-                           //success = true;
+                            //success = true;
                             return false;
                         } else {
                             to_merge_brother = right_brother;
@@ -638,7 +634,7 @@ namespace ds {
                             throw e;
                         }
                         if (cur.location == root.location)root = cur;
-                       //success = true;
+                        //success = true;
                         return false;
                     } else {
                         if (!index_memory->Write(cur.location, cur)) {
@@ -666,7 +662,7 @@ namespace ds {
                         }
                         if (parent.location == root.location)root = parent;
                     }
-                   //success = true;
+                    //success = true;
                     return false;//the removal suceeded and the recursion ended;
                 } else {
                     //否则的话就是需要brother，现在parent的孩子cur，需要一个brother来帮助他
@@ -678,7 +674,7 @@ namespace ds {
                     Node merged_child;
                     int merged_index;
                     if (borrow_flag) {
-                       //success = true;
+                        //success = true;
                         return false;//the recursion is ended;
                     } else {
                         if (brother_to_merge_index > num) {
@@ -710,14 +706,14 @@ namespace ds {
                         if (parent.location == root.location) {
                             root = parent;
                         }
-                       //success = true;
+                        //success = true;
                         return false;
                     } else {
                         if (parent.location == root.location) {
                             if (parent.children_num == 1) {
                                 root = merged_child;
                                 root_index = merged_child.location;
-                               //success = true;
+                                //success = true;
                                 return false;
                                 //相当于根节点不要了
                             } else {
@@ -955,14 +951,14 @@ namespace ds {
         private:
             Key key;
             Info info;
-            BPlusTree<Key, Info, KeyCompare> *this_bpt = nullptr;
+            BPlusTree<Key, Info, KeyCompare,max_key_num,max_rcd_num> *this_bpt = nullptr;
             Node leaf_node;//所在的leaf node
             Block block;//所在的block
             int block_index;//在block中的标号
             int node_index;
             bool at_end = false;
         public:
-            iterator(BPlusTree<Key, Info, KeyCompare> *bpt) {
+            iterator(BPlusTree<Key, Info, KeyCompare,max_key_num,max_rcd_num> *bpt) {
                 this_bpt = bpt;
             }
 
@@ -1065,8 +1061,8 @@ namespace ds {
                 }
             }
 
-            friend BPlusTree<Key, Info, KeyCompare>::iterator
-            BPlusTree<Key, Info, KeyCompare>::FindBigger(const Key &wanted);
+            friend BPlusTree<Key, Info, KeyCompare,max_key_num,max_rcd_num>::iterator
+            BPlusTree<Key, Info, KeyCompare,max_key_num,max_rcd_num>::FindBigger(const Key &wanted);
 
             std::pair<Key, Info> operator*() {
                 if (at_end) {
