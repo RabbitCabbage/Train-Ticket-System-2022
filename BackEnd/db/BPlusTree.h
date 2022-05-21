@@ -11,7 +11,7 @@
 #include <cstring>
 
 namespace ds {
-    template<typename Key, typename Info, class KeyCompare = std::less<Key>, const int max_key_num = 5, const int max_rcd_num = 5>
+    template<typename Key, typename Info, const int max_key_num = 5, const int max_rcd_num = 5,class KeyCompare = std::less<Key>>
 
     class BPlusTree {
         //以下两个值暂定，可能以后根据实际情况更改
@@ -957,14 +957,14 @@ namespace ds {
         private:
             Key key;
             Info info;
-            BPlusTree<Key, Info, KeyCompare,max_key_num,max_rcd_num> *this_bpt = nullptr;
+            BPlusTree<Key, Info,max_key_num,max_rcd_num ,KeyCompare> *this_bpt = nullptr;
             Node leaf_node;//所在的leaf node
             Block block;//所在的block
             int block_index;//在block中的标号
             int node_index;
             bool at_end = false;
         public:
-            iterator(BPlusTree<Key, Info, KeyCompare,max_key_num,max_rcd_num> *bpt) {
+            iterator(BPlusTree<Key, Info,max_key_num,max_rcd_num ,KeyCompare> *bpt) {
                 this_bpt = bpt;
             }
 
@@ -1067,8 +1067,8 @@ namespace ds {
                 }
             }
 
-            friend BPlusTree<Key, Info, KeyCompare,max_key_num,max_rcd_num>::iterator
-            BPlusTree<Key, Info, KeyCompare,max_key_num,max_rcd_num>::FindBigger(const Key &wanted);
+            friend BPlusTree<Key, Info,max_key_num,max_rcd_num ,KeyCompare>::iterator
+            BPlusTree<Key, Info,max_key_num,max_rcd_num,KeyCompare>::FindBigger(const Key &wanted);
 
             std::pair<Key, Info> operator*() {
                 if (at_end) {

@@ -26,6 +26,39 @@ namespace hnyls2002 {
         static const int UserNameMax = 21, PasswdMax = 31, NameMax = 16, mailAddMax = 31, privilegeMax = 3;
         static const int TrainIDMax = 21, StNameMax = 31, StNumMax = 105;
 
+    public:
+
+        static void get_size() {
+            std::cerr << "fstr<UserNameMax> :  " << sizeof(fstr<UserNameMax>) << std::endl;
+            std::cerr << "UserInfo : " << sizeof(UserInfo) << std::endl;
+            std::cerr << "----------------------------------" << std::endl;
+
+            std::cerr << "fstr<TrainIDMax> : " << sizeof(fstr<TrainIDMax>) << std::endl;
+            std::cerr << "TrainInfo : " << sizeof(TrainInfo) << std::endl;
+            std::cerr << "----------------------------------" << std::endl;
+
+            std::cerr << "std::pair<fstr<TrainIDMax>,Data> : " << sizeof(std::pair<fstr<TrainIDMax>, Date>)
+                      << std::endl;
+            std::cerr << "DayTrainInfo : " << sizeof(DayTrainInfo) << std::endl;
+            std::cerr << "----------------------------------" << std::endl;
+
+            std::cerr << "std::pair<fstr<StNameMax>, int> : " << sizeof(std::pair<fstr<StNameMax>, int>) << std::endl;
+            std::cerr << "std::pair<fstr<TrainIDMax>, int> : " << sizeof(std::pair<fstr<TrainIDMax>, int>) << std::endl;
+            std::cerr << "----------------------------------" << std::endl;
+
+            std::cerr << "std::pair<fstr<UserNameMax>, int> : " << sizeof(std::pair<fstr<StNameMax>, int>) << std::endl;
+            std::cerr << "Order : " << sizeof(Order) << std::endl;
+            std::cerr << "----------------------------------" << std::endl;
+
+            std::cerr << "std::pair<std::pair<fstr<TrainIDMax>, Date>, int> : "
+                      << sizeof(std::pair<std::pair<fstr<TrainIDMax>, Date>, int>) << std::endl;
+            std::cerr << "PendType : " << sizeof(PendType) << std::endl;
+            std::cerr << "----------------------------------" << std::endl;
+
+        }
+
+    private:
+
         struct UserInfo {
             fstr<UserNameMax> UserName;
             fstr<PasswdMax> Passwd;
@@ -43,26 +76,17 @@ namespace hnyls2002 {
         };
 
     public:
-        System() : UserDb(STORAGE_DIR "index2", STORAGE_DIR "record2"),
-                   TrainDb(STORAGE_DIR "index1", STORAGE_DIR "record1"),
+        System() : UserDb(STORAGE_DIR "index1", STORAGE_DIR "record1"),
+                   TrainDb(STORAGE_DIR "index2", STORAGE_DIR "record2"),
                    DayTrainDb(STORAGE_DIR "index3", STORAGE_DIR "record3"),
                    TrainSet(STORAGE_DIR "index4", STORAGE_DIR "record4"),
                    OrderDb(STORAGE_DIR "index5", STORAGE_DIR "record5"),
                    PendDb(STORAGE_DIR "index6", STORAGE_DIR "record6") {
         }
 
-        /*~System() {
-            UserDb.~BPlusTree();
-            TrainDb.~BPlusTree();
-            DayTrainDb.~BPlusTree();
-            TrainDb.~BPlusTree();
-            OrderDb.~BPlusTree();
-            PendDb.~BPlusTree();
-        }*/
-
     private:
 
-        ds::BPlusTree<fstr<UserNameMax>, UserInfo> UserDb;
+        ds::BPlusTree<fstr<UserNameMax>, UserInfo, 146, 31> UserDb;
         //bptree<fstr<UserNameMax>, UserInfo> UserDb;
 
         sjtu::map<fstr<UserNameMax>, bool> Logged;
@@ -81,7 +105,7 @@ namespace hnyls2002 {
             int TimeStamp{};// 记录发布这个火车的时间戳，相当于一个TrainID
         };
 
-        ds::BPlusTree<fstr<TrainIDMax>, TrainInfo> TrainDb;
+        ds::BPlusTree<fstr<TrainIDMax>, TrainInfo, 146, 4> TrainDb;
         //bptree<fstr<TrainIDMax>, TrainInfo> TrainDb;
 
         struct DayTrainInfo {
@@ -99,13 +123,13 @@ namespace hnyls2002 {
             }
         };
 
-        ds::BPlusTree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo> DayTrainDb;
+        ds::BPlusTree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo, 113, 9> DayTrainDb;
         //bptree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo> DayTrainDb;
 
         // 对于每一个车站，存储有多少辆火车经过它 {站名，序号} 序号采用发布这个火车时的时间戳
         // TrainSet 里面可以用来存这是第几个站，会好很多!!!
 
-        ds::BPlusTree<std::pair<fstr<StNameMax>, int>, std::pair<fstr<TrainIDMax>, int> > TrainSet;
+        ds::BPlusTree<std::pair<fstr<StNameMax>, int>, std::pair<fstr<TrainIDMax>, int>, 101, 128> TrainSet;
         // bptree<std::pair<fstr<StNameMax>, int>, std::pair<fstr<TrainIDMax>, int> > TrainSet;
 
 
@@ -442,7 +466,7 @@ namespace hnyls2002 {
             int pl{}, pr{}, TimeStamp{};
         };
 
-        ds::BPlusTree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;
+        ds::BPlusTree<std::pair<fstr<UserNameMax>, int>, Order,101,24> OrderDb;
         //bptree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;// 第二维存这是第几个订单
 
         struct PendType {
@@ -450,7 +474,7 @@ namespace hnyls2002 {
             int TicketNum, pl, pr, id;// 存了车站顺序和订单的编号
         };
 
-        ds::BPlusTree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType> PendDb;
+        ds::BPlusTree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType,101,93> PendDb;
         //bptree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType> PendDb;// 第二维存[-时间戳] 购票的时间戳
 
         ret_type buy_ticket(const CmdType &arg) {

@@ -5,8 +5,8 @@
 #include <random>
 
 void test_logic() {
-    freopen("../testdata/basic_4/my.in", "r", stdin);
-    freopen("../testdata/basic_4/my.out", "w", stdout);
+//    freopen("../testdata/basic_4/my.in", "r", stdin);
+//    freopen("../testdata/basic_4/my.out", "w", stdout);
     clock_t sts = clock();
     hnyls2002::System sys;
     std::string str;
@@ -19,9 +19,8 @@ void test_logic() {
             //std::cerr << it << std::endl;
         }
     }
-    std::cout << "fuck" << std::endl;
     clock_t end = clock();
-    std::cerr << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
+    std::cout << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 }
 
 /*static ds::BPlusTree<int, hnyls2002::fstr<200> > mp("../data/index", "../data/record");
