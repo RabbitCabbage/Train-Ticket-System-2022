@@ -455,24 +455,27 @@ namespace hnyls2002 {
 
         ret_type buy_ticket(const CmdType &arg) {
             if (Logged.find(arg['u']) == Logged.end())return ret_value(-1);// 没有登录
-            if (!TrainDb.Find(arg['i']).first)return ret_value(-1);// 没有这列车
-            auto Train = TrainDb[arg['i']];
+            auto Train_res = TrainDb.Find(arg['i']);
+            if (!Train_res.first)return ret_value(-1);// 没有这列车
+            auto &Train = Train_res.second.second;
             if (!Train.is_released)return ret_value(-1);// 没有被release
             int TimeStampTrain = Train.TimeStamp;
             // 可能没有这个站
-            if (!TrainSet.Find({arg['f'], TimeStampTrain}).first)return ret_value(-1);
-            if (!TrainSet.Find({arg['t'], TimeStampTrain}).first)return ret_value(-1);
-            int pl = TrainSet[{arg['f'], TimeStampTrain}].second, pr = TrainSet[{arg['t'], TimeStampTrain}].second;
+            auto TrainSet_res_f = TrainSet.Find({arg['f'], TimeStampTrain});
+            auto TrainSet_res_t = TrainSet.Find({arg['t'], TimeStampTrain});
+            if (!TrainSet_res_f.first)return ret_value(-1);
+            if (!TrainSet_res_t.first)return ret_value(-1);
+            int pl = TrainSet_res_f.second.second.second, pr = TrainSet_res_t.second.second.second;
             int IntervalDays = GetDate(Train, pl, arg['d']);
             Date Day = Date(Train.StartTime.DayStep(IntervalDays));
             if (Day < Train.SaleDate.first || Train.SaleDate.second < Day)return ret_value(-1);// 不在区间内
-            if (!DayTrainDb.Find({Train.TrainID, Day}).first) {// 没有实例化，现在实例化
-                DayTrainInfo tmp;
-                for (int i = 1; i <= Train.StNum; ++i)
-                    tmp.RemainSeats[i] = Train.SeatNum;
-                //DayTrainDb[{Train.TrainID, Day}] = tmp;
-                DayTrainDb.Insert({Train.TrainID, Day}, tmp);
-            }
+//            if (!DayTrainDb.Find({Train.TrainID, Day}).first) {// 没有实例化，现在实例化
+            DayTrainInfo tmp;
+            for (int i = 1; i <= Train.StNum; ++i)
+                tmp.RemainSeats[i] = Train.SeatNum;
+            //DayTrainDb[{Train.TrainID, Day}] = tmp;
+            DayTrainDb.Insert({Train.TrainID, Day}, tmp);
+//            }
             auto DayTrain = DayTrainDb[{Train.TrainID, Day}];
             auto User = UserDb[{arg['u']}];
             int RemainSeat = DayTrain.Get_Remain(pl, pr);
@@ -482,7 +485,8 @@ namespace hnyls2002 {
             if (RemainSeat >= TicketNum) {// 可以买票
                 DayTrain.Modify(pl, pr, TicketNum);
                 //DayTrainDb[{Train.TrainID, Day}] = DayTrain;
-                auto res = DayTrainDb.Modify({Train.TrainID, Day}, DayTrain);
+                DayTrainDb.Modify({Train.TrainID, Day}, DayTrain);
+                DayTrainDb.Modify({Train.TrainID, Day}, DayTrain);
                 order.Status = success;
             } else {
                 //PendDb[{{Train.TrainID, Day}, arg.TimeStamp}] = PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1};

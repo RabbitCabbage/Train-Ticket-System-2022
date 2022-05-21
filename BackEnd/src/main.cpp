@@ -4,65 +4,6 @@
 #include <iostream>
 #include <random>
 
-void file() {
-    freopen("../testdata/basic_1/1.in", "r", stdin);
-}
-
-void test() {
-    srand((unsigned) time(NULL));
-    sjtu::map<std::pair<hnyls2002::fstr<100>, int>, int> mp;
-    for (int i = 1; i <= 1000; ++i) {
-        std::string tmp;
-        for (int j = 1; j <= 10; ++j)
-            tmp += rand() % 26 + 'a';
-        for (int j = 10; j >= 1; --j)
-            mp[{tmp, j}] = i;
-    }
-    auto it = mp.begin();
-    while (it != mp.end()) {
-        std::cout << it->first.first << " " << it->first.second << " " << it->second << std::endl;
-        ++it;
-    }
-}
-
-void test1() {
-    hnyls2002::fstr<100> a("asdasdas");
-    std::cout << a << std::endl;
-    std::cout << a.to_string().size() << std::endl;
-}
-
-void test2() {
-    std::string str;
-    std::cin >> str;
-    hnyls2002::Date t = str;
-    std::cout << t.mm << "\n" << t.dd << std::endl;
-}
-
-void test3() {
-    using namespace hnyls2002;
-    bptree<std::pair<fstr<100>, Date>, std::string> DayTrainDb;
-    srand((unsigned) time(NULL));
-    for (int i = 1; i <= 100; ++i) {
-        std::string tmp;
-        for (int j = 1; j <= 10; ++j)
-            tmp += rand() % 26 + 'a';
-        for (int i = 1; i <= 30; ++i) {
-            Date day(7, i);
-            DayTrainDb[{tmp, day}] = std::to_string(day.mm) + "-" + std::to_string(day.dd) + " " + tmp;
-        }
-    }
-    for (auto it: DayTrainDb)
-        std::cout << it.second << std::endl;
-}
-
-void test4() {
-    freopen("../testdata/xjb.out", "w", stdout);
-    using namespace hnyls2002;
-    Time a(1, 1, 0, 0);
-    for (int i = 0; i < 365 * 24 * 60; ++i)
-        std::cout << (a + i).to_string() << std::endl;
-}
-
 void test_logic() {
     freopen("../testdata/basic_4/my.in", "r", stdin);
     freopen("../testdata/basic_4/my.out", "w", stdout);
@@ -78,11 +19,12 @@ void test_logic() {
             //std::cerr << it << std::endl;
         }
     }
+    std::cout << "fuck" << std::endl;
     clock_t end = clock();
     std::cerr << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 }
 
-/*static ds::BPlusTree<int, hnyls2002::fstr<9000> > mp("../data/index", "../data/record");
+/*static ds::BPlusTree<int, hnyls2002::fstr<200> > mp("../data/index", "../data/record");
 
 void show() {
     auto it = mp.FindBigger(0);
@@ -137,6 +79,14 @@ void erase(int l, int r) {
     }
 }
 
+void find(int l, int r) {
+    for (int i = l; i <= r; ++i) {
+        auto it = mp.Find(i);
+        if (!it.first)std::cout << "Finding...False\n";
+        else std::cout << "Finding...Success\n" << it.second.first << " , " << it.second.second << std::endl;
+    }
+}
+
 void test_bptree() {
     clock_t sts = clock();
 
@@ -155,6 +105,7 @@ void test_bptree() {
         else if (arg[0] == "exit")break;
         else if (arg[0] == "clear")mp.Clear();
         else if (arg[0] == "lower_bound")lower_bound(std::stoi(arg[1]));
+        else if (arg[0] == "find")find(std::stoi(arg[1]), std::stoi(arg[2]));
         clock_t end = clock();
         std::cout << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
     }
