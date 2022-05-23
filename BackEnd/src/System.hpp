@@ -13,7 +13,7 @@
 
 #define bptree std::map
 
-#define STORAGE_DIR "../data/"
+#define STORAGE_DIR ""
 
 namespace hnyls2002 {
 
@@ -389,19 +389,21 @@ namespace hnyls2002 {
 
             int get_time() const { return tik2.Arriving - tik1.Leaving; }
 
-            int get_time1() const { return tik1.Arriving - tik1.Leaving; }
-
             int get_cost() const { return tik1.Cost + tik2.Cost; }
         };
 
         static bool cmp_trans_time(const TransType &t1, const TransType &t2) {
-            if (t1.get_time() == t2.get_time())return t1.get_time1() < t2.get_time1();
-            return t1.get_time() < t2.get_time();
+            if (t1.get_time() != t2.get_time())return t1.get_time() < t2.get_time();
+            else if (t1.get_cost() != t2.get_cost())return t1.get_cost() < t2.get_cost();
+            else if (t1.tik1.TrainID != t2.tik1.TrainID)return t1.tik1.TrainID < t2.tik1.TrainID;
+            return t1.tik2.TrainID < t2.tik2.TrainID;
         }
 
         static bool cmp_trans_cost(const TransType &t1, const TransType &t2) {
-            if (t1.get_cost() == t2.get_cost())return t1.get_time1() < t2.get_time1();
-            return t1.get_cost() < t2.get_cost();
+            if (t1.get_cost() != t2.get_cost())return t1.get_cost() < t2.get_cost();
+            else if (t1.get_time() != t2.get_time())return t1.get_time() < t2.get_time();
+            else if (t1.tik1.TrainID != t2.tik1.TrainID)return t1.tik1.TrainID < t2.tik1.TrainID;
+            return t1.tik2.TrainID < t2.tik2.TrainID;
         }
 
         ret_type query_transfer(const CmdType &arg) {
@@ -466,7 +468,7 @@ namespace hnyls2002 {
             int pl{}, pr{}, TimeStamp{};
         };
 
-        ds::BPlusTree<std::pair<fstr<UserNameMax>, int>, Order,101,24> OrderDb;
+        ds::BPlusTree<std::pair<fstr<UserNameMax>, int>, Order, 101, 24> OrderDb;
         //bptree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;// 第二维存这是第几个订单
 
         struct PendType {
@@ -474,7 +476,7 @@ namespace hnyls2002 {
             int TicketNum, pl, pr, id;// 存了车站顺序和订单的编号
         };
 
-        ds::BPlusTree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType,101,93> PendDb;
+        ds::BPlusTree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType, 101, 93> PendDb;
         //bptree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType> PendDb;// 第二维存[-时间戳] 购票的时间戳
 
         ret_type buy_ticket(const CmdType &arg) {
@@ -483,6 +485,7 @@ namespace hnyls2002 {
             if (!Train_res.first)return ret_value(-1);// 没有这列车
             auto &Train = Train_res.second.second;
             if (!Train.is_released)return ret_value(-1);// 没有被release
+            if (std::stoi(arg['n']) > Train.SeatNum)return ret_value(-1);// 当你特牛逼想买很多票的时候应该直接返回-1
             int TimeStampTrain = Train.TimeStamp;
             // 可能没有这个站
             auto TrainSet_res_f = TrainSet.Find({arg['f'], TimeStampTrain});
@@ -490,6 +493,7 @@ namespace hnyls2002 {
             if (!TrainSet_res_f.first)return ret_value(-1);
             if (!TrainSet_res_t.first)return ret_value(-1);
             int pl = TrainSet_res_f.second.second.second, pr = TrainSet_res_t.second.second.second;
+            if (pl >= pr)return ret_value(-1);
             int IntervalDays = GetDate(Train, pl, arg['d']);
             Date Day = Date(Train.StartTime.DayStep(IntervalDays));
             if (Day < Train.SaleDate.first || Train.SaleDate.second < Day)return ret_value(-1);// 不在区间内

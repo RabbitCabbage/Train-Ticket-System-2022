@@ -1,12 +1,9 @@
 #include "System.hpp"
-#include "tools.hpp"
-#include "BPlusTree.h"
 #include <iostream>
-#include <random>
 
 void test_logic() {
-//    freopen("../testdata/basic_4/my.in", "r", stdin);
-//    freopen("../testdata/basic_4/my.out", "w", stdout);
+//    freopen("../testdata/basic_1/my.in", "r", stdin);
+//    freopen("../testdata/basic_1/my.out", "w", stdout);
     clock_t sts = clock();
     hnyls2002::System sys;
     std::string str;
