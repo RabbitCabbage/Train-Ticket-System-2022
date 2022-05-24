@@ -37,8 +37,14 @@ namespace hnyls2002 {
             std::cerr << "DayTrainInfo : " << sizeof(DayTrainInfo) << std::endl;
             std::cerr << "----------------------------------" << std::endl;
 
-            std::cerr << "std::pair<fstr<StNameMax>, int> : " << sizeof(std::pair<fstr<StNameMax>, int>) << std::endl;
-            std::cerr << "std::pair<fstr<TrainIDMax>, int> : " << sizeof(std::pair<fstr<TrainIDMax>, int>) << std::endl;
+            std::cerr << "std::pair<fstr<StNameMax>, fstr<TrainIDMax> : "
+                      << sizeof(std::pair<fstr<StNameMax>, fstr<TrainIDMax>>) << std::endl;
+            std::cerr << "int : " << sizeof(int) << std::endl;
+            std::cerr << "----------------------------------" << std::endl;
+
+            std::cerr << "std::pair<fstr<StNameMax>, fstr<TrainIDMax>> : "
+                      << sizeof(std::pair<fstr<StNameMax>, fstr<TrainIDMax>>) << std::endl;
+            std::cerr << "std::pair<int, TrainInfo> : " << sizeof(std::pair<int, TrainInfo>) << std::endl;
             std::cerr << "----------------------------------" << std::endl;
 
             std::cerr << "std::pair<fstr<UserNameMax>, int> : " << sizeof(std::pair<fstr<StNameMax>, int>) << std::endl;
@@ -123,11 +129,11 @@ namespace hnyls2002 {
         //bptree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo> DayTrainDb;
 
         // TrainSet的Key改成{StName,TrainID},Info改成int，表示这个站在这次车上是第几个。
-        ds::BPlusTree<std::pair<fstr<StNameMax>, fstr<TrainIDMax> >, int, 101, 128> TrainSet;
+        ds::BPlusTree<std::pair<fstr<StNameMax>, fstr<TrainIDMax> >, int, 64, 1024> TrainSet;
         // bptree<std::pair<fstr<StNameMax>, int>, std::pair<fstr<TrainIDMax>, int> > TrainSet;
 
         // BP树一个一个访问直接炸裂
-        ds::BPlusTree<std::pair<fstr<StNameMax>, fstr<TrainIDMax>>, std::pair<int, TrainInfo>, 100, 4> TrainList;
+        ds::BPlusTree<std::pair<fstr<StNameMax>, fstr<TrainIDMax>>, std::pair<int, TrainInfo>, 64, 4> TrainList;
 
         //reference to stackoverflow
         //https://stackoverflow.com/questions/26331628/reference-to-non-static-member-function-must-be-called
@@ -271,11 +277,13 @@ namespace hnyls2002 {
                 //TrainSet[{Train.StName[i], Train.TimeStamp}] = {Train.TrainID, i};
                 TrainSet.Insert({Train.StName[i], Train.TrainID}, i);
                 TrainList.Insert({Train.StName[i], Train.TrainID}, {i, Train});
+/*
                 if (arg.TimeStamp == 10418) {
                     std::cerr << Train.StName[i] << " " << i << std::endl;
                     std::cerr << TrainList.FindBigger({Train.StName[i], fstr<TrainIDMax>()}).AtEnd() << std::endl;
                 }
                 std::cerr << TrainList.GetSize() << std::endl;
+*/
             }
             return ret_value(0);
         }
@@ -366,19 +374,18 @@ namespace hnyls2002 {
         }
 
         ret_type query_ticket(const CmdType &arg) {
-            //auto it = TrainList.FindBigger({arg['s'], fstr<TrainIDMax>()});
-            auto it = TrainSet.FindBigger({arg['s'], fstr<TrainIDMax>()});
+            auto it = TrainList.FindBigger({arg['s'], fstr<TrainIDMax>()});
+            //auto it = TrainSet.FindBigger({arg['s'], fstr<TrainIDMax>()});
             sjtu::vector<TicketType> tickets;
+/*
             if (arg.TimeStamp == 48878) {
                 std::cerr << arg['s'] << std::endl;
                 std::pair<fstr<StNameMax>, fstr<TrainIDMax>> x;
                 x.first = arg['s'];
                 x.second = fstr<TrainIDMax>();
-                std::cout << "caonimamamam" << std::endl;
                 auto it1 = TrainList.FindBigger(x);
                 std::cerr << it1.AtEnd() << std::endl;
                 std::cerr << "---------------------" << std::endl;
-                std::cout << "---------------------" << std::endl;
                 it1 = TrainList.FindBigger({std::string(), std::string()});
                 while (!it1.AtEnd()) {
                     std::cerr << (*it1).first.first << " " << (*it1).first.second << std::endl;
@@ -386,10 +393,11 @@ namespace hnyls2002 {
                     ++it1;
                 }
             }
+*/
             for (; !it.AtEnd() && (*it).first.first == arg['s']; ++it) {// 这里需要访问经过起点站的所有车次
-                //TrainInfo Train = (*it).second.second;
-                auto Train = TrainDb[(*it).first.second];
-                auto pl = (*it).second;
+                TrainInfo Train = (*it).second.second;
+                //auto Train = TrainDb[(*it).first.second];
+                auto pl = (*it).second.first;
                 auto pr = CheckTrain(Train, pl, arg['t']);
                 if (!pr)continue;// 查询车次是否合法
                 auto tik = Get_Ticket(Train, pl, pr, arg['d']);
@@ -430,11 +438,21 @@ namespace hnyls2002 {
         ret_type query_transfer(const CmdType &arg) {
             auto it_s = TrainSet.FindBigger({arg['s'], fstr<TrainIDMax>()});
             auto it_t = TrainSet.FindBigger({arg['t'], fstr<TrainIDMax>()});
+/*
+            auto it_s = TrainList.FindBigger({arg['s'], fstr<TrainIDMax>()});
+            auto it_t = TrainList.FindBigger({arg['t'], fstr<TrainIDMax>()});
+*/
             sjtu::vector<std::pair<TrainInfo, int> > lis_s, lis_t;
             for (; !it_s.AtEnd() && (*it_s).first.first == arg['s']; ++it_s)
                 lis_s.push_back({TrainDb[(*it_s).first.second], (*it_s).second});
             for (; !it_t.AtEnd() && (*it_t).first.first == arg['t']; ++it_t)
                 lis_t.push_back({TrainDb[(*it_t).first.second], (*it_t).second});
+/*
+            for (; !it_s.AtEnd() && (*it_s).first.first == arg['s']; ++it_s)
+                lis_s.push_back({(*it_s).second.second, (*it_s).second.first});
+            for (; !it_t.AtEnd() && (*it_t).first.first == arg['t']; ++it_t)
+                lis_t.push_back({(*it_t).second.second, (*it_t).second.first});
+*/
             // 得到了两个list
             TransType tik;
             bool flag = false;

@@ -2,10 +2,12 @@
 #include <iostream>
 
 void test_logic() {
+/*
     system("rm index*");
     system("rm record*");
     freopen("./testdata/normal/basic_6/my.in", "r", stdin);
     freopen("./testdata/normal/basic_6/my.out", "w", stdout);
+*/
     clock_t sts = clock();
     hnyls2002::System sys;
     std::string str;
