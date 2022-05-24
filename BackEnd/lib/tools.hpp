@@ -237,7 +237,7 @@ namespace hnyls2002 {
             return to_int() < t.to_int();
         }
 
-        Time DayStep(int x) {// 这个时间往后跳x天
+        Time DayStep(int x) const {// 这个时间往后跳x天
             Date tmp = Date(*this);
             tmp += x;
             return Time{tmp, *this};

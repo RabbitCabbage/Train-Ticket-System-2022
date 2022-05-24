@@ -2,8 +2,10 @@
 #include <iostream>
 
 void test_logic() {
-//    freopen("../testdata/basic_1/my.in", "r", stdin);
-//    freopen("../testdata/basic_1/my.out", "w", stdout);
+    system("rm index*");
+    system("rm record*");
+    freopen("./testdata/normal/basic_6/my.in", "r", stdin);
+    freopen("./testdata/normal/basic_6/my.out", "w", stdout);
     clock_t sts = clock();
     hnyls2002::System sys;
     std::string str;
@@ -20,9 +22,7 @@ void test_logic() {
     std::cout << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 }
 
-/*static ds::BPlusTree<int, hnyls2002::fstr<200> > mp("../data/index", "../data/record");
-
-void show() {
+/*void show() {
     auto it = mp.FindBigger(0);
     if (!it.AtEnd())std::cout << "Not at end" << std::endl;
     for (; !it.AtEnd(); ++it)
@@ -113,5 +113,19 @@ void test_bptree() {
 
 int main() {
     test_logic();
+
+    /*system("rm ./index");
+    system("rm ./record");
+    static ds::BPlusTree<hnyls2002::fstr<66>, hnyls2002::fstr<9000>, 77, 4> mp("./index", "./record");
+    static int a[110000];
+    for (int i = 1; i <= 1000; ++i)a[i] = i;
+    for (int i = 1; i <= 1000; ++i)std::swap(a[rand() % 1000 + 1], a[rand() % 1000 + 1]);
+    for (int i = 1; i <= 1000; ++i) {
+        mp.Insert(std::to_string(a[i]), hnyls2002::fstr<9000>());
+    }
+    for (int i = 1; i <= 1000; ++i)
+        if (mp.FindBigger(std::to_string(i)).AtEnd())
+            std::cerr << i << std::endl;*/
+
     return 0;
 }
