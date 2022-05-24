@@ -11,7 +11,7 @@
 #include <cstring>
 
 namespace ds {
-    template<typename Key, typename Info, const int max_key_num = 5, const int max_rcd_num = 5,class KeyCompare = std::less<Key>>
+    template<typename Key, typename Info, const int max_key_num = 5, const int max_rcd_num = 5, class KeyCompare = std::less <Key>>
 
     class BPlusTree {
         //以下两个值暂定，可能以后根据实际情况更改
@@ -99,7 +99,7 @@ namespace ds {
         //return the index in the record file and the info struct
         // the first int is the index of the block and the second int is the index of the record in the block;
         //the index can be used to modify the struct infomation
-        std::pair<std::pair<int, int>, Info> RecursionFind(const Key &key) {
+        std::pair <std::pair<int, int>, Info> RecursionFind(const Key &key) {
             if (scale == 0) {
                 Info tmp;
                 return {{-1, -1}, tmp};
@@ -829,7 +829,7 @@ namespace ds {
         //如果找到这个元素存在，返回true，同时返回记录信息的具体值
         //如果没有找到，返回false，这时的返回struct是随机值，不应该被访问
         std::pair<bool, std::pair<Key, Info>> Find(const Key &key) {
-            std::pair<std::pair<int, int>, Info> tmp = RecursionFind(key);
+            std::pair <std::pair<int, int>, Info> tmp = RecursionFind(key);
             if (tmp.first.first == -1)return {false, {key, tmp.second}};
             else return {true, {key, tmp.second}};
         }
@@ -844,7 +844,7 @@ namespace ds {
         //返回一个bool，修改成功返回true，否则返回false
         //如果这个要修改的元素在B+树中不存在就会返回false
         bool Modify(const Key &key, const Info &new_info) {
-            std::pair<std::pair<int, int>, Info> tmp = RecursionFind(key);
+            std::pair <std::pair<int, int>, Info> tmp = RecursionFind(key);
             if (tmp.first.first == -1)return false;
             else {
 //                record_memory->Write(tmp.first, new_info);
@@ -898,23 +898,43 @@ namespace ds {
             return l;
         }
 
+        //要找到的key就是wanted，找到之后把这几个引用传递值修改了，
+        //分别是：这个元素所在的block，这个元素所在的leaf_node，这个元素的key，info，
+        //还有在这个叶节点之中是第几个block，在这个block中是第几条记录
         bool
-        RecursionFindBigger(const Key &wanted, Block &block, Node &leaf, Key &key,
-                            Info &info, int &node_index, int &block_index) {
-            Node cur = root;
+        RecursionFindBigger(Node cur, const Key &wanted, Block &block, Node &leaf, Key &key,
+                            Info &info, int &node_index, int &block_index, bool &need_brother) {
             if (cur.children_num == 0) {
                 return false;
             }
-            while (!cur.isleaf) {
+            if (!cur.isleaf) {//如果说cur不是叶节点，还要往下找
                 int num = BinarySearchLess(cur.keys, cur.children_num, wanted);
                 if (num == -1)num = 0;
                 //num is the first element that is less than or equal to the key
                 //so we need go to the children the key stand for (num)
 //                !index_memory->Read(cur.children[index + 1], cur);
+                Node parent = cur;
                 if (!index_memory->Read(cur.children[num], cur)) {
                     ds::ReadException e;
                     throw e;
                 }
+                bool flag = RecursionFindBigger(cur, wanted, block, leaf, key, info, node_index, block_index,
+                                                need_brother);
+                if (need_brother) {
+                    //如果说parent有一个比自己cur更大的孩子,就去找这个孩子
+                    if (num + 1 < parent.children_num) {
+                        if (!index_memory->Read(parent.children[num + 1], cur)) {
+                            ds::ReadException e;
+                            throw e;
+                        }
+                        need_brother = false;
+                        return RecursionFindBigger(cur, wanted, block, leaf, key, info, node_index, block_index,
+                                                   need_brother);
+                    } else {
+                        need_brother = true;
+                        return false;
+                    }
+                } else return flag;
             }
             //when the cur is leaf node come out of the circle
             //then do binary search on that leaf node to fina the key
@@ -928,6 +948,7 @@ namespace ds {
             int key_index = BinarySearchBigger(block.keys, block.size, wanted);
             if (key_index == block.size) {
                 if (num + 1 >= cur.children_num) {
+                    need_brother = true;
                     return false;
                 }
                 if (!record_memory->Read(cur.children[num + 1], block)) {
@@ -942,12 +963,14 @@ namespace ds {
                 info = block.record[0];
                 block_index = 0;
                 node_index = num + 1;
+                need_brother = false;
                 return true;
             } else {
                 key = block.keys[key_index];
                 info = block.record[key_index];
                 block_index = key_index;
                 node_index = num;
+                need_brother = false;
                 return true;
             }
         }
@@ -957,14 +980,14 @@ namespace ds {
         private:
             Key key;
             Info info;
-            BPlusTree<Key, Info,max_key_num,max_rcd_num ,KeyCompare> *this_bpt = nullptr;
+            BPlusTree<Key, Info, max_key_num, max_rcd_num, KeyCompare> *this_bpt = nullptr;
             Node leaf_node;//所在的leaf node
             Block block;//所在的block
             int block_index;//在block中的标号
             int node_index;
             bool at_end = false;
         public:
-            iterator(BPlusTree<Key, Info,max_key_num,max_rcd_num ,KeyCompare> *bpt) {
+            iterator(BPlusTree<Key, Info, max_key_num, max_rcd_num, KeyCompare> *bpt) {
                 this_bpt = bpt;
             }
 
@@ -1067,10 +1090,10 @@ namespace ds {
                 }
             }
 
-            friend BPlusTree<Key, Info,max_key_num,max_rcd_num ,KeyCompare>::iterator
-            BPlusTree<Key, Info,max_key_num,max_rcd_num,KeyCompare>::FindBigger(const Key &wanted);
+            friend BPlusTree<Key, Info, max_key_num, max_rcd_num, KeyCompare>::iterator
+            BPlusTree<Key, Info, max_key_num, max_rcd_num, KeyCompare>::FindBigger(const Key &wanted);
 
-            std::pair<Key, Info> operator*() {
+            std::pair <Key, Info> operator*() {
                 if (at_end) {
                     ds::InvalidIterator e;
                     throw e;
@@ -1086,8 +1109,10 @@ namespace ds {
         //返回指向比key更大的
         iterator FindBigger(const Key &wanted) {
             iterator iter(this);
-            bool find = RecursionFindBigger(wanted, iter.block, iter.leaf_node, iter.key, iter.info, iter.node_index,
-                                            iter.block_index);
+            bool tmp;
+            bool find = RecursionFindBigger(root, wanted, iter.block, iter.leaf_node, iter.key, iter.info,
+                                            iter.node_index,
+                                            iter.block_index, tmp);
             if (!find) {
                 iter.at_end = true;
                 return iter;
