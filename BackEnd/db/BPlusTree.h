@@ -11,7 +11,7 @@
 #include <cstring>
 
 namespace ds {
-    template<typename Key, typename Info, const int max_key_num = 5, const int max_rcd_num = 5, class KeyCompare = std::less <Key>>
+    template<typename Key, typename Info, const int max_key_num = 5, const int max_rcd_num = 5, class KeyCompare = std::less<Key>>
 
     class BPlusTree {
         //以下两个值暂定，可能以后根据实际情况更改
@@ -99,7 +99,7 @@ namespace ds {
         //return the index in the record file and the info struct
         // the first int is the index of the block and the second int is the index of the record in the block;
         //the index can be used to modify the struct infomation
-        std::pair <std::pair<int, int>, Info> RecursionFind(const Key &key) {
+        std::pair<std::pair<int, int>, Info> RecursionFind(const Key &key) {
             if (scale == 0) {
                 Info tmp;
                 return {{-1, -1}, tmp};
@@ -829,7 +829,7 @@ namespace ds {
         //如果找到这个元素存在，返回true，同时返回记录信息的具体值
         //如果没有找到，返回false，这时的返回struct是随机值，不应该被访问
         std::pair<bool, std::pair<Key, Info>> Find(const Key &key) {
-            std::pair <std::pair<int, int>, Info> tmp = RecursionFind(key);
+            std::pair<std::pair<int, int>, Info> tmp = RecursionFind(key);
             if (tmp.first.first == -1)return {false, {key, tmp.second}};
             else return {true, {key, tmp.second}};
         }
@@ -838,7 +838,7 @@ namespace ds {
         //返回一个bool，修改成功返回true，否则返回false
         //如果这个要修改的元素在B+树中不存在就会返回false
         bool Modify(const Key &key, const Info &new_info) {
-            std::pair <std::pair<int, int>, Info> tmp = RecursionFind(key);
+            std::pair<std::pair<int, int>, Info> tmp = RecursionFind(key);
             if (tmp.first.first == -1)return false;
             else {
 //                record_memory->Write(tmp.first, new_info);
@@ -862,6 +862,7 @@ namespace ds {
             scale = 0;
             root.isleaf = true;
             root.children_num = 0;
+            if (root_index == -1)return;
             if (!index_memory->Write(root_index, root)) {
                 ds::WriteException e;
                 throw e;
@@ -1087,7 +1088,7 @@ namespace ds {
             friend BPlusTree<Key, Info, max_key_num, max_rcd_num, KeyCompare>::iterator
             BPlusTree<Key, Info, max_key_num, max_rcd_num, KeyCompare>::FindBigger(const Key &wanted);
 
-            std::pair <Key, Info> operator*() {
+            std::pair<Key, Info> operator*() {
                 if (at_end) {
                     ds::InvalidIterator e;
                     throw e;
