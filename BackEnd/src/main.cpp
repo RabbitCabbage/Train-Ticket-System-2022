@@ -5,11 +5,12 @@ void test_logic() {
 /*
     system("rm index*");
     system("rm record*");
-    freopen("./testdata/normal/basic_6/my.in", "r", stdin);
-    freopen("./testdata/normal/basic_6/my.out", "w", stdout);
+    freopen("./testdata/normal/basic_4/my.in", "r", stdin);
+    freopen("./testdata/normal/basic_4/my.out", "w", stdout);
 */
     clock_t sts = clock();
     hnyls2002::System sys;
+    sys.GetSize();
     std::string str;
     while (getline(std::cin, str)) {
         //std::cerr << "Command : " << str << std::endl;
@@ -116,18 +117,21 @@ void test_bptree() {
 int main() {
     test_logic();
 
-    /*system("rm ./index");
+/*
+    system("rm ./index");
     system("rm ./record");
-    static ds::BPlusTree<hnyls2002::fstr<66>, hnyls2002::fstr<9000>, 77, 4> mp("./index", "./record");
+    static ds::BPlusTree<hnyls2002::fstr<66>, hnyls2002::fstr<9000>, 3, 4> mp("./index", "./record");
+    mp.Clear();
     static int a[110000];
-    for (int i = 1; i <= 1000; ++i)a[i] = i;
-    for (int i = 1; i <= 1000; ++i)std::swap(a[rand() % 1000 + 1], a[rand() % 1000 + 1]);
     for (int i = 1; i <= 1000; ++i) {
+        a[i] = rand();
         mp.Insert(std::to_string(a[i]), hnyls2002::fstr<9000>());
     }
     for (int i = 1; i <= 1000; ++i)
-        if (mp.FindBigger(std::to_string(i)).AtEnd())
-            std::cerr << i << std::endl;*/
+        if (mp.FindBigger(std::to_string(a[i])).AtEnd())
+            std::cerr << i << " " << a[i] << std::endl;
+    mp.Clear();
+*/
 
     return 0;
 }

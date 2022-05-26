@@ -19,43 +19,29 @@ namespace hnyls2002 {
         typedef sjtu::vector<std::string> ret_type;
 
         static const int UserNameMax = 21, PasswdMax = 31, NameMax = 16, mailAddMax = 31, privilegeMax = 3;
-        static const int TrainIDMax = 21, StNameMax = 31, StNumMax = 105;
+        static const int TrainIDMax = 21, StNameMax = 31, StNumMax = 101;
 
     public:
 
-        static void get_size() {
-            std::cerr << "fstr<UserNameMax> :  " << sizeof(fstr<UserNameMax>) << std::endl;
-            std::cerr << "UserInfo : " << sizeof(UserInfo) << std::endl;
-            std::cerr << "----------------------------------" << std::endl;
+        System() : UserDb(STORAGE_DIR "index1", STORAGE_DIR "record1"),
+                   BasicTrainDb(STORAGE_DIR "index2", STORAGE_DIR "record2"),
+                   TrainDb(STORAGE_DIR "index3", STORAGE_DIR "record3"),
+                   StDb(STORAGE_DIR "index4", STORAGE_DIR "record4"),
+                   DayTrainDb(STORAGE_DIR "index5", STORAGE_DIR "record5"),
+                   OrderDb(STORAGE_DIR "index6", STORAGE_DIR "record6"),
+                   PendDb(STORAGE_DIR "index7", STORAGE_DIR "record7") {
+            auto it = BasicTrainDb.FindBigger(fstr<TrainIDMax>());
+            for (; !it.AtEnd(); ++it)BasicTrainMp.insert({(*it).first, (*it).second});
+        }
 
-            std::cerr << "fstr<TrainIDMax> : " << sizeof(fstr<TrainIDMax>) << std::endl;
-            std::cerr << "TrainInfo : " << sizeof(TrainInfo) << std::endl;
-            std::cerr << "----------------------------------" << std::endl;
-
-            std::cerr << "std::pair<fstr<TrainIDMax>,Data> : " << sizeof(std::pair<fstr<TrainIDMax>, Date>)
-                      << std::endl;
-            std::cerr << "DayTrainInfo : " << sizeof(DayTrainInfo) << std::endl;
-            std::cerr << "----------------------------------" << std::endl;
-
-            std::cerr << "std::pair<fstr<StNameMax>, fstr<TrainIDMax> : "
-                      << sizeof(std::pair<fstr<StNameMax>, fstr<TrainIDMax>>) << std::endl;
-            std::cerr << "int : " << sizeof(int) << std::endl;
-            std::cerr << "----------------------------------" << std::endl;
-
-            std::cerr << "std::pair<fstr<StNameMax>, fstr<TrainIDMax>> : "
-                      << sizeof(std::pair<fstr<StNameMax>, fstr<TrainIDMax>>) << std::endl;
-            std::cerr << "std::pair<int, TrainInfo> : " << sizeof(std::pair<int, TrainInfo>) << std::endl;
-            std::cerr << "----------------------------------" << std::endl;
-
-            std::cerr << "std::pair<fstr<UserNameMax>, int> : " << sizeof(std::pair<fstr<StNameMax>, int>) << std::endl;
-            std::cerr << "Order : " << sizeof(Order) << std::endl;
-            std::cerr << "----------------------------------" << std::endl;
-
-            std::cerr << "std::pair<std::pair<fstr<TrainIDMax>, Date>, int> : "
-                      << sizeof(std::pair<std::pair<fstr<TrainIDMax>, Date>, int>) << std::endl;
-            std::cerr << "PendType : " << sizeof(PendType) << std::endl;
-            std::cerr << "----------------------------------" << std::endl;
-
+        void GetSize() {
+            UserDb.GetSizeInfo();
+            BasicTrainDb.GetSizeInfo();
+            TrainDb.GetSizeInfo();
+            StDb.GetSizeInfo();
+            DayTrainDb.GetSizeInfo();
+            OrderDb.GetSizeInfo();
+            PendDb.GetSizeInfo();
         }
 
     private:
@@ -76,39 +62,35 @@ namespace hnyls2002 {
             }
         };
 
-    public:
-        System() : UserDb(STORAGE_DIR "index1", STORAGE_DIR "record1"),
-                   TrainDb(STORAGE_DIR "index2", STORAGE_DIR "record2"),
-                   DayTrainDb(STORAGE_DIR "index3", STORAGE_DIR "record3"),
-                   TrainSet(STORAGE_DIR "index4", STORAGE_DIR "record4"),
-                   TrainList(STORAGE_DIR "index5", STORAGE_DIR "record5"),
-                   OrderDb(STORAGE_DIR "index6", STORAGE_DIR "record6"),
-                   PendDb(STORAGE_DIR "index7", STORAGE_DIR "record7") {
-        }
-
-    private:
-
         ds::BPlusTree<fstr<UserNameMax>, UserInfo, 146, 31> UserDb;
-        //bptree<fstr<UserNameMax>, UserInfo> UserDb;
 
         sjtu::map<fstr<UserNameMax>, bool> Logged;
-        // 登录状态用一颗内存中的map，登录有second=true，没有登录则节点不存在（记得删除）
 
-        struct TrainInfo {
-            fstr<TrainIDMax> TrainID;
-            fstr<StNameMax> StName[StNumMax];
-            int StNum{}, SeatNum{}, Prices[StNumMax]{};// 用前缀和来存票价 i 到第i站的票价
-            int TravelTimes[StNumMax]{}, StopOverTimes[StNumMax]{};
-            Time StartTime;
+        struct BasicTrainInfo { // 列车最最基本的信息，每次构造System时先统一读入到内存里面，exit的时候再写会到外存中。
+            bool is_released{};
+            int StNum{}, SeatNum{};
             std::pair<Date, Date> SaleDate;
             char Type{};
-            bool is_released{};
-            std::pair<Time, Time> TimeTable[StNumMax];
-            int TimeStamp{};// 记录发布这个火车的时间戳，相当于一个TrainID
         };
 
-        ds::BPlusTree<fstr<TrainIDMax>, TrainInfo, 146, 4> TrainDb;
-        //bptree<fstr<TrainIDMax>, TrainInfo> TrainDb;
+        ds::BPlusTree<fstr<TrainIDMax>, BasicTrainInfo, 146, 128> BasicTrainDb;// 外存对象
+
+        sjtu::map<fstr<TrainIDMax>, BasicTrainInfo> BasicTrainMp;// 内存对象
+
+        struct TrainInfo { // 列车的数据量最大的信息，只在query_train的时候会用到。
+            fstr<StNameMax> StName[StNumMax];
+            int Prices[StNumMax]{};// 用前缀和来存票价 i 到第i站的票价
+            std::pair<Time, Time> TimeTable[StNumMax];
+        };
+
+        ds::BPlusTree<fstr<TrainIDMax>, TrainInfo, 146, 2> TrainDb;
+
+        struct StInfo {// 车站的信息，不同列车的相同车站都是不同的车站，维护了不同的信息。
+            int Rank{}, Price{};// Rank是第几个车站，为了能够查询剩余票数,Price对应了Prices[]
+            Time Arriving, Leaving;// 对应了TimeTable[]
+        };
+
+        ds::BPlusTree<std::pair<fstr<StNameMax>, fstr<TrainIDMax> >, StInfo,64,102> StDb;
 
         struct DayTrainInfo {
             int RemainSeats[StNumMax]{};// 第1项为SeatNum，以此类推
@@ -125,15 +107,7 @@ namespace hnyls2002 {
             }
         };
 
-        ds::BPlusTree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo, 113, 9> DayTrainDb;
-        //bptree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo> DayTrainDb;
-
-        // TrainSet的Key改成{StName,TrainID},Info改成int，表示这个站在这次车上是第几个。
-        ds::BPlusTree<std::pair<fstr<StNameMax>, fstr<TrainIDMax> >, int, 64, 1024> TrainSet;
-        // bptree<std::pair<fstr<StNameMax>, int>, std::pair<fstr<TrainIDMax>, int> > TrainSet;
-
-        // BP树一个一个访问直接炸裂
-        ds::BPlusTree<std::pair<fstr<StNameMax>, fstr<TrainIDMax>>, std::pair<int, TrainInfo>, 64, 4> TrainList;
+        ds::BPlusTree<std::pair<fstr<TrainIDMax>, Date>, DayTrainInfo, 113, 10> DayTrainDb;
 
         //reference to stackoverflow
         //https://stackoverflow.com/questions/26331628/reference-to-non-static-member-function-must-be-called
@@ -212,87 +186,84 @@ namespace hnyls2002 {
         }
 
         ret_type add_train(const CmdType &arg) {
-            if (TrainDb.Find(arg['i']).first)return ret_value(-1);// 已经存在，添加失败
+            if (BasicTrainMp.find(arg['i']) != BasicTrainMp.end())return ret_value(-1);// 已经存在，添加失败
+            BasicTrainInfo BasicTrain;
             TrainInfo Train;
-            Train.TrainID = arg['i'];
-            Train.StNum = std::stoi(arg['n']);
-            Train.SeatNum = std::stoi(arg['m']);
-            Train.Type = arg['y'][0];
-            Train.is_released = false;// 初始都是未发布
-            Train.TimeStamp = arg.TimeStamp;// 时间戳改成add_train的时间戳了。
+            BasicTrain.SeatNum = std::stoi(arg['m']);
+            BasicTrain.StNum = std::stoi(arg['n']);
+            BasicTrain.Type = arg['y'][0];
+            BasicTrain.is_released = false;// 初始都是未发布
 
             ret_type tmp = split_cmd(arg['s'], '|');// StationName
-            for (int i = 0; i < Train.StNum; ++i)
+            for (int i = 0; i < BasicTrain.StNum; ++i)
                 Train.StName[i + 1] = tmp[i];
 
             tmp = split_cmd(arg['p'], '|'); // Prices n-1 前缀和 第1项为0
             Train.Prices[0] = 0;
-            for (int i = 0; i < Train.StNum - 1; ++i)
+            for (int i = 0; i < BasicTrain.StNum - 1; ++i)
                 Train.Prices[i + 2] = Train.Prices[i + 1] + std::stoi(tmp[i]);
 
+            int TravelTimes[StNumMax], StopOverTimes[StNumMax];
             tmp = split_cmd(arg['t'], '|');
-            for (int i = 0; i < Train.StNum - 1; ++i)// TravelTimes n-1项，从 1 开始
-                Train.TravelTimes[i + 1] = std::stoi(tmp[i]);
-
+            for (int i = 0; i < BasicTrain.StNum - 1; ++i)// TravelTimes n-1项，从 1 开始
+                TravelTimes[i + 1] = std::stoi(tmp[i]);
             tmp = split_cmd(arg['o'], '|');
-            for (int i = 0; i < Train.StNum - 2; ++i)// StopOverTimes n-2项，从1开始
-                Train.StopOverTimes[i + 1] = std::stoi(tmp[i]);
+            for (int i = 0; i < BasicTrain.StNum - 2; ++i)// StopOverTimes n-2项，从1开始
+                StopOverTimes[i + 1] = std::stoi(tmp[i]);
 
             tmp = split_cmd(arg['d'], '|');
-            Train.SaleDate.first = tmp[0];
-            Train.SaleDate.second = tmp[1];
-            Train.StartTime = Time(tmp[0], arg['x']);
+            BasicTrain.SaleDate.first = tmp[0];
+            BasicTrain.SaleDate.second = tmp[1];
 
             Time BasicTime(tmp[0], arg['x']);// 发售日期的第一趟车为基准的TimeTable
-            for (int i = 1; i <= Train.StNum; ++i) {
+            for (int i = 1; i <= BasicTrain.StNum; ++i) {
                 // first-Arriving second-Leaving
-                if (i > 1)Train.TimeTable[i].first = (BasicTime += Train.TravelTimes[i - 1]);
-                if (i > 1 && i < Train.StNum)Train.TimeTable[i].second = (BasicTime += Train.StopOverTimes[i - 1]);
+                if (i > 1)Train.TimeTable[i].first = (BasicTime += TravelTimes[i - 1]);
+                if (i > 1 && i < BasicTrain.StNum)Train.TimeTable[i].second = (BasicTime += StopOverTimes[i - 1]);
                 if (i == 1)Train.TimeTable[i].second = BasicTime;
             }
 
-            //TrainDb[Train.TrainID] = Train;
-            TrainDb.Insert(Train.TrainID, Train);
+            BasicTrainMp.insert({arg['i'], BasicTrain});
+            TrainDb.Insert(arg['i'], Train);
 
             return ret_value(0);
         }
 
         ret_type delete_train(const CmdType &arg) {
-            if (!TrainDb.Find(arg['i']).first)return ret_value(-1);// 没有这个车次
-            if (TrainDb[arg['i']].is_released)return ret_value(-1);// 已经发布了
+            if (BasicTrainMp.find(arg['i']) == BasicTrainMp.end())return ret_value(-1);// 没有这个车次
+            if (BasicTrainMp[arg['i']].is_released)return ret_value(-1);// 已经发布了
+            // 所有对于BasicTrain的操作，只操作Mp。
+            BasicTrainMp.erase(BasicTrainMp.find(arg['i']));
             TrainDb.Remove(arg['i']);
             return ret_value(0);
         }
 
         ret_type release_train(const CmdType &arg) {// 先不把DayTrain加进去，有购票的时候再加？
-            if (!TrainDb.Find(arg['i']).first)return ret_value(-1);// 没有找到这辆车
-            auto Train = TrainDb[arg['i']]; // 不采用引用的形式，不便于B+树的操作
-            if (Train.is_released)return ret_value(-1);// 已经发布了
-            Train.is_released = true;
-            //TrainDb[arg['i']] = Train;
-            TrainDb.Modify(arg['i'], Train);
+            if (BasicTrainMp.find(arg['i']) == BasicTrainMp.end())return ret_value(-1);// 没有找到这辆车
+            auto &BasicTrain = BasicTrainMp[arg['i']];
+            if (BasicTrain.is_released)return ret_value(-1);// 已经发布了
+            BasicTrain.is_released = true;
 
-            // 火车发布了，就可以买票了，所以把这列车的时间戳加入TrainSet
-            for (int i = 1; i <= Train.StNum; ++i) {
-                //TrainSet[{Train.StName[i], Train.TimeStamp}] = {Train.TrainID, i};
-                TrainSet.Insert({Train.StName[i], Train.TrainID}, i);
-                TrainList.Insert({Train.StName[i], Train.TrainID}, {i, Train});
-/*
-                if (arg.TimeStamp == 10418) {
-                    std::cerr << Train.StName[i] << " " << i << std::endl;
-                    std::cerr << TrainList.FindBigger({Train.StName[i], fstr<TrainIDMax>()}).AtEnd() << std::endl;
-                }
-                std::cerr << TrainList.GetSize() << std::endl;
-*/
+            auto Train = TrainDb[arg['i']];
+            // 火车发布了，应该就要添加StInfo数据库了
+            for (int i = 1; i <= BasicTrain.StNum; ++i) {
+                StInfo St;
+                St.Rank = i;
+                St.Leaving = Train.TimeTable[i].second;
+                St.Arriving = Train.TimeTable[i].first;
+                St.Price = Train.Prices[i];
+                StDb.Insert({Train.StName[i], arg['i']}, St);
             }
             return ret_value(0);
         }
 
         ret_type query_train(const CmdType &arg) {
-            if (!TrainDb.Find(arg['i']).first)return ret_value(-1);// 没有找到这辆车
-            TrainInfo Train = TrainDb[arg['i']];
+            if (BasicTrainMp.find(arg['i']) == BasicTrainMp.end())return ret_value(-1);// 没有找到这辆车
+            auto BasicTrain = BasicTrainMp[arg['i']];
+            auto Train = TrainDb[arg['i']];
+
             Date Day = arg['d'];
-            if (Day < Train.SaleDate.first || Train.SaleDate.second < Day)return ret_value(-1);// 这段时间不发车
+            if (Day < BasicTrain.SaleDate.first || BasicTrain.SaleDate.second < Day)return ret_value(-1);// 这段时间不发车
             // 注意格式
             bool is_in = true;
             DayTrainInfo DayTrain;
@@ -300,18 +271,20 @@ namespace hnyls2002 {
             if (is_in) DayTrain = DayTrainDb[{arg['i'], arg['d']}];
 
             ret_type ret;
-            ret.push_back(arg['i'] + ' ' + std::string(1, Train.Type));
-            int IntervalDays = GetDate(Train, 1, arg['d']);
-            for (int i = 1; i <= Train.StNum; ++i) {
+            ret.push_back(arg['i'] + ' ' + std::string(1, BasicTrain.Type));
+            //int IntervalDays = GetDate(Train, 1, arg['d']);
+            int IntervalDays = Day - Date(Train.TimeTable[1].second);
+            for (int i = 1; i <= BasicTrain.StNum; ++i) {
                 std::string tmp;
                 tmp += Train.StName[i].to_string() + " ";
                 tmp += (i == 1 ? "xx-xx xx:xx" : Train.TimeTable[i].first.DayStep(IntervalDays).to_string()) + " -> ";
-                tmp += i == Train.StNum ? "xx-xx xx:xx" : Train.TimeTable[i].second.DayStep(IntervalDays).to_string();
+                tmp += i == BasicTrain.StNum ? "xx-xx xx:xx" : Train.TimeTable[i].second.DayStep(
+                        IntervalDays).to_string();
                 tmp += " " + std::to_string(Train.Prices[i]) + " ";
                 // 这里查询的是从这一站到下一站的票数
-                if (i == Train.StNum)tmp += "x";
+                if (i == BasicTrain.StNum)tmp += "x";
                 else if (is_in)tmp += std::to_string(DayTrain.RemainSeats[i + 1]);
-                else tmp += std::to_string(Train.SeatNum);
+                else tmp += std::to_string(BasicTrain.SeatNum);
                 ret.push_back(tmp);
             }
             return ret;
@@ -342,68 +315,44 @@ namespace hnyls2002 {
         }
 
         std::pair<int, TicketType>
-        Get_Ticket(const TrainInfo &Train, int pl, int pr, const Date &Day) {// 确定了站台的编号，需要判断有无票，在不在售票时间？
+        Get_Ticket(const fstr<TrainIDMax> &TrainID, const BasicTrainInfo &BasicTrain, const StInfo &from,
+                   const StInfo &to, const Date &Day) {// 确定了站台的编号，需要判断有无票，在不在售票时间？
             TicketType ret;
-            int IntervalDays = GetDate(Train, pl, Day);
-            Date BuyDate = Date(Train.StartTime.DayStep(IntervalDays));
-            if (BuyDate < Train.SaleDate.first)return {-1, ret};// 售票区间前
-            if (Train.SaleDate.second < BuyDate)return {-2, ret};// 售票区间后
-            if (DayTrainDb.Find({Train.TrainID, BuyDate}).first)
-                ret.RemainSeat = DayTrainDb[{Train.TrainID, BuyDate}].Get_Remain(pl, pr);
-            else ret.RemainSeat = Train.SeatNum;// 没有实例化
-            //if (!ret.RemainSeat)return {-3, ret};// 没有票了
+//            int IntervalDays = GetDate(Train, pl, Day);
+            int IntervalDays = Day - Date(from.Leaving);
+            Date BuyDate = BasicTrain.SaleDate.first + IntervalDays;
+            if (BuyDate < BasicTrain.SaleDate.first)return {-1, ret};// 售票区间前
+            if (BasicTrain.SaleDate.second < BuyDate)return {-2, ret};// 售票区间后
+            auto res = DayTrainDb.Find({TrainID, BuyDate});
+            if (res.first)ret.RemainSeat = res.second.second.Get_Remain(from.Rank, to.Rank);
+            else ret.RemainSeat = BasicTrain.SeatNum;// 没有实例化
 
-            ret.Leaving = Train.TimeTable[pl].second.DayStep(IntervalDays);
-            ret.Arriving = Train.TimeTable[pr].first.DayStep(IntervalDays);
+            ret.Leaving = from.Leaving.DayStep(IntervalDays);
+            ret.Arriving = to.Arriving.DayStep(IntervalDays);
             ret.TravelTime = ret.Arriving - ret.Leaving;
-            ret.Cost = Train.Prices[pr] - Train.Prices[pl];
-            ret.TrainID = Train.TrainID;
+            ret.Cost = to.Price - from.Price;
+            ret.TrainID = TrainID;
             return {0, ret};
         }
 
-        // 一个专门check方向和目的地 !!! (顺便把编号也返回了)
-        static int CheckTrain(const TrainInfo &Train, int k, const std::string &Des) {// 返回Des的编号
-            for (int i = k + 1; i <= Train.StNum; ++i)
-                if (Train.StName[i] == Des)return i;
-            return 0;
-        }
-
-        // 相当于推算出来Arriving和Leaving了
-        static int GetDate(const TrainInfo &Train, int pl, const Date &Day) {// 推算出火车票始发站的发车日期
-            return Day - Date(Train.TimeTable[pl].second);
-        }
-
         ret_type query_ticket(const CmdType &arg) {
-            auto it = TrainList.FindBigger({arg['s'], fstr<TrainIDMax>()});
-            //auto it = TrainSet.FindBigger({arg['s'], fstr<TrainIDMax>()});
+            auto it_s = StDb.FindBigger({arg['s'], fstr<TrainIDMax>()});
+            auto it_t = StDb.FindBigger({arg['t'], fstr<TrainIDMax>()});
+            sjtu::vector<std::pair<fstr<TrainIDMax>, StInfo>> lis_s, lis_t;
+            for (; !it_s.AtEnd() && (*it_s).first.first == arg['s']; ++it_s)
+                lis_s.push_back({(*it_s).first.second, (*it_s).second});
+            for (; !it_t.AtEnd() && (*it_t).first.first == arg['t']; ++it_t)
+                lis_t.push_back({(*it_t).first.second, (*it_t).second});
+
             sjtu::vector<TicketType> tickets;
-/*
-            if (arg.TimeStamp == 48878) {
-                std::cerr << arg['s'] << std::endl;
-                std::pair<fstr<StNameMax>, fstr<TrainIDMax>> x;
-                x.first = arg['s'];
-                x.second = fstr<TrainIDMax>();
-                auto it1 = TrainList.FindBigger(x);
-                std::cerr << it1.AtEnd() << std::endl;
-                std::cerr << "---------------------" << std::endl;
-                it1 = TrainList.FindBigger({std::string(), std::string()});
-                while (!it1.AtEnd()) {
-                    std::cerr << (*it1).first.first << " " << (*it1).first.second << std::endl;
-                    if ((*it1).first.first == arg['s'])std::cerr << "fuck" << std::endl;
-                    ++it1;
+            for (auto S: lis_s)
+                for (auto T: lis_t) {
+                    if (S.first != T.first)continue;
+                    if (S.second.Rank >= T.second.Rank)continue;
+                    auto BasicTrain = BasicTrainMp[S.first];
+                    auto tik = Get_Ticket(S.first, BasicTrain, S.second, T.second, arg['d']);
+                    if (tik.first == 0)tickets.push_back(tik.second);
                 }
-            }
-*/
-            for (; !it.AtEnd() && (*it).first.first == arg['s']; ++it) {// 这里需要访问经过起点站的所有车次
-                TrainInfo Train = (*it).second.second;
-                //auto Train = TrainDb[(*it).first.second];
-                auto pl = (*it).second.first;
-                auto pr = CheckTrain(Train, pl, arg['t']);
-                if (!pr)continue;// 查询车次是否合法
-                auto tik = Get_Ticket(Train, pl, pr, arg['d']);
-                //没有票也可以查到的哦！
-                if (tik.first == 0)tickets.push_back(tik.second);
-            }
             auto cmp = arg['p'] == "cost" ? &System::cmp_ticket_cost : &System::cmp_ticket_time;
             sort(tickets.begin(), tickets.end(), cmp);
             ret_type ret;
@@ -436,49 +385,47 @@ namespace hnyls2002 {
         }
 
         ret_type query_transfer(const CmdType &arg) {
-            auto it_s = TrainSet.FindBigger({arg['s'], fstr<TrainIDMax>()});
-            auto it_t = TrainSet.FindBigger({arg['t'], fstr<TrainIDMax>()});
-/*
-            auto it_s = TrainList.FindBigger({arg['s'], fstr<TrainIDMax>()});
-            auto it_t = TrainList.FindBigger({arg['t'], fstr<TrainIDMax>()});
-*/
-            sjtu::vector<std::pair<TrainInfo, int> > lis_s, lis_t;
+            auto it_s = StDb.FindBigger({arg['s'], fstr<TrainIDMax>()});
+            auto it_t = StDb.FindBigger({arg['t'], fstr<TrainIDMax>()});
+
+            sjtu::vector<std::pair<fstr<TrainIDMax>, StInfo>> lis_s, lis_t;
+
             for (; !it_s.AtEnd() && (*it_s).first.first == arg['s']; ++it_s)
-                lis_s.push_back({TrainDb[(*it_s).first.second], (*it_s).second});
+                lis_s.push_back({(*it_s).first.second, (*it_s).second});
             for (; !it_t.AtEnd() && (*it_t).first.first == arg['t']; ++it_t)
-                lis_t.push_back({TrainDb[(*it_t).first.second], (*it_t).second});
-/*
-            for (; !it_s.AtEnd() && (*it_s).first.first == arg['s']; ++it_s)
-                lis_s.push_back({(*it_s).second.second, (*it_s).second.first});
-            for (; !it_t.AtEnd() && (*it_t).first.first == arg['t']; ++it_t)
-                lis_t.push_back({(*it_t).second.second, (*it_t).second.first});
-*/
+                lis_t.push_back({(*it_t).first.second, (*it_t).second});
+
             // 得到了两个list
             TransType tik;
             bool flag = false;
             auto cmp = arg['p'] == "cost" ? &System::cmp_trans_cost : &System::cmp_trans_time;
             for (auto &S: lis_s) {// 起点车次 S
                 sjtu::linked_hashmap<std::string, int> mp;
-                for (int i = S.second + 1; i <= S.first.StNum; ++i) // map 中存 -s 后面所有可以到的站 (-s) -> (-trans)
-                    mp[S.first.StName[i].to_string()] = i;
+                auto TrainS = TrainDb[S.first];
+                auto BasicTrainS = BasicTrainMp[S.first];
+                for (int i = S.second.Rank + 1; i <= BasicTrainS.StNum; ++i) // map 中存 -s 后面所有可以到的站 (-s) -> (-trans)
+                    mp[TrainS.StName[i].to_string()] = i;
                 for (auto &T: lis_t) {// 终点车次 T
-                    for (int i = 1; i < T.second; ++i) {// 中转站，要求 -t 前面的车站 (-trans) -> (-t)
-                        fstr<StNameMax> trans = T.first.StName[i];
+                    auto TrainT = TrainDb[T.first];
+                    auto BasicTrainT = BasicTrainMp[T.first];
+                    for (int i = 1; i < T.second.Rank; ++i) {// 中转站，要求 -t 前面的车站 (-trans) -> (-t)
+                        fstr<StNameMax> trans = TrainT.StName[i];
                         if (mp.find(trans.to_string()) == mp.end())continue;// 没有这个站
-                        int pl = S.second, pr = mp[trans.to_string()], ql = i, qr = T.second;
-                        auto tik1 = Get_Ticket(S.first, pl, pr, arg['d']);
+                        if (S.first == T.first)continue;// 换乘的同一辆车
+                        int pl = S.second.Rank, pr = mp[trans.to_string()], ql = i, qr = T.second.Rank;
+                        StInfo TransS, TransT;
+                        TransS.Rank = pr, TransT.Rank = ql;
+                        TransS.Price = TrainS.Prices[pr], TransT.Price = TrainT.Prices[ql];
+                        TransS.Arriving = TrainS.TimeTable[pr].first;
+                        TransT.Leaving = TrainT.TimeTable[ql].second;
+                        auto tik1 = Get_Ticket(S.first, BasicTrainS, S.second, TransS, arg['d']);
                         if (tik1.first < 0) continue;// 第一张票不合法
-                        Time Arrival = std::max(tik1.second.Arriving,
-                                                T.first.TimeTable[ql].second);
+                        Time Arrival = std::max(tik1.second.Arriving, TransT.Leaving);
                         for (auto d = (Date) Arrival;; d += 1) {
-                            auto tik2 = Get_Ticket(T.first, ql, qr, d);
+                            auto tik2 = Get_Ticket(T.first, BasicTrainT, TransT, T.second, d);
                             if (tik2.first == -2)break;// 超过日期，可以退出循环
                             if (tik2.first < 0)continue;
                             if (tik2.second.Leaving < Arrival)continue;// 这里记得还要判断一下是否大于上一次的Arriving Time!!!
-                            if (S.first.TrainID == T.first.TrainID) {
-                                //if (GetDate(S.first, pl, arg['d']) == GetDate(T.first, ql, d))
-                                continue;// 换乘的是同一辆车
-                            }
                             if (!flag) tik = {tik1.second, tik2.second, trans.to_string()}, flag = true;
                             else tik = std::min(tik, {tik1.second, tik2.second, trans.to_string()}, cmp);
                             break;
@@ -507,7 +454,7 @@ namespace hnyls2002 {
             int pl{}, pr{}, TimeStamp{};
         };
 
-        ds::BPlusTree<std::pair<fstr<UserNameMax>, int>, Order, 100, 24> OrderDb;
+        ds::BPlusTree<std::pair<fstr<UserNameMax>, int>, Order, 128, 24> OrderDb;
         //bptree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;// 第二维存这是第几个订单
 
         struct PendType {
@@ -515,61 +462,59 @@ namespace hnyls2002 {
             int TicketNum, pl, pr, id;// 存了车站顺序和订单的编号
         };
 
-        ds::BPlusTree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType, 101, 93> PendDb;
+        ds::BPlusTree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType, 102, 93> PendDb;
         //bptree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType> PendDb;// 第二维存[-时间戳] 购票的时间戳
 
         ret_type buy_ticket(const CmdType &arg) {
             if (Logged.find(arg['u']) == Logged.end())return ret_value(-1);// 没有登录
-            auto Train_res = TrainDb.Find(arg['i']);
-            if (!Train_res.first)return ret_value(-1);// 没有这列车
-            auto &Train = Train_res.second.second;
-            if (!Train.is_released)return ret_value(-1);// 没有被release
-            if (std::stoi(arg['n']) > Train.SeatNum)return ret_value(-1);// 当你特牛逼想买很多票的时候应该直接返回-1
-            int TimeStampTrain = Train.TimeStamp;
+            if (BasicTrainMp.find(arg['i']) == BasicTrainMp.end())return ret_value(-1);// 没有这列车
+            auto &BasicTrain = BasicTrainMp[arg['i']];
+            if (!BasicTrain.is_released)return ret_value(-1);// 没有被release
+            if (std::stoi(arg['n']) > BasicTrain.SeatNum)return ret_value(-1);// 当你特牛逼想买很多票的时候应该直接返回-1
             // 可能没有这个站
-            auto TrainSet_res_f = TrainSet.Find({arg['f'], arg['i']});
-            auto TrainSet_res_t = TrainSet.Find({arg['t'], arg['i']});
-            if (!TrainSet_res_f.first)return ret_value(-1);
-            if (!TrainSet_res_t.first)return ret_value(-1);
-            int pl = TrainSet_res_f.second.second, pr = TrainSet_res_t.second.second;
-            if (pl >= pr)return ret_value(-1);
-            int IntervalDays = GetDate(Train, pl, arg['d']);
-            Date Day = Date(Train.StartTime.DayStep(IntervalDays));
-            if (Day < Train.SaleDate.first || Train.SaleDate.second < Day)return ret_value(-1);// 不在区间内
+            auto St_res_f = StDb.Find({arg['f'], arg['i']});
+            auto St_res_t = StDb.Find({arg['t'], arg['i']});
+            if (!St_res_f.first)return ret_value(-1);
+            if (!St_res_t.first)return ret_value(-1);
+
+            auto St1 = St_res_f.second.second, St2 = St_res_t.second.second;
+            if (St1.Rank >= St2.Rank)return ret_value(-1);
+            int IntervalDays = arg['d'] - Date(St1.Leaving);
+            Date Day = BasicTrain.SaleDate.first + IntervalDays;
+            if (Day < BasicTrain.SaleDate.first || BasicTrain.SaleDate.second < Day)return ret_value(-1);// 不在区间内
 //            if (!DayTrainDb.Find({Train.TrainID, Day}).first) {// 没有实例化，现在实例化
             DayTrainInfo tmp;
-            for (int i = 1; i <= Train.StNum; ++i)
-                tmp.RemainSeats[i] = Train.SeatNum;
+            for (int i = 1; i <= BasicTrain.StNum; ++i)
+                tmp.RemainSeats[i] = BasicTrain.SeatNum;
             //DayTrainDb[{Train.TrainID, Day}] = tmp;
-            DayTrainDb.Insert({Train.TrainID, Day}, tmp);
+            DayTrainDb.Insert({arg['i'], Day}, tmp);
 //            }
-            auto DayTrain = DayTrainDb[{Train.TrainID, Day}];
+            auto DayTrain = DayTrainDb[{arg['i'], Day}];
             auto User = UserDb[{arg['u']}];
-            int RemainSeat = DayTrain.Get_Remain(pl, pr);
+            int RemainSeat = DayTrain.Get_Remain(St1.Rank, St2.Rank);
             int TicketNum = std::stoi(arg['n']);
             if (RemainSeat < TicketNum && (arg['q'].empty() || arg['q'] == "false")) return ret_value(-1);
             Order order;
             if (RemainSeat >= TicketNum) {// 可以买票
-                DayTrain.Modify(pl, pr, TicketNum);
+                DayTrain.Modify(St1.Rank, St2.Rank, TicketNum);
                 //DayTrainDb[{Train.TrainID, Day}] = DayTrain;
-                DayTrainDb.Modify({Train.TrainID, Day}, DayTrain);
-                DayTrainDb.Modify({Train.TrainID, Day}, DayTrain);
+                DayTrainDb.Modify({arg['i'], Day}, DayTrain);
                 order.Status = success;
             } else {
                 //PendDb[{{Train.TrainID, Day}, arg.TimeStamp}] = PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1};
-                PendDb.Insert({{Train.TrainID, Day}, arg.TimeStamp},
-                              PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1});
+                PendDb.Insert({{arg['i'], Day}, arg.TimeStamp},
+                              PendType{arg['u'], TicketNum, St1.Rank, St2.Rank, User.OrderNum + 1});
                 order.Status = pending;
             }
             TicketType tik;
-            tik.Leaving = Train.TimeTable[pl].second.DayStep(IntervalDays);
-            tik.Arriving = Train.TimeTable[pr].first.DayStep(IntervalDays);
+            tik.Leaving = St1.Leaving.DayStep(IntervalDays);
+            tik.Arriving = St2.Arriving.DayStep(IntervalDays);
             tik.RemainSeat = TicketNum;
             // 这里Cost记录单价!!!
-            tik.Cost = Train.Prices[pr] - Train.Prices[pl];
+            tik.Cost = St2.Price - St1.Price;
             tik.TrainID = arg['i'];
             order.tik = tik, order.From = arg['f'], order.To = arg['t'], order.Day = Day;
-            order.pl = pl, order.pr = pr, order.TimeStamp = arg.TimeStamp;
+            order.pl = St1.Rank, order.pr = St2.Rank, order.TimeStamp = arg.TimeStamp;
             //OrderDb[{User.UserName, -(++User.OrderNum)}] = order;
             OrderDb.Insert({User.UserName, -(++User.OrderNum)}, order);
             //UserDb[arg['u']] = User;
@@ -642,6 +587,9 @@ namespace hnyls2002 {
 
         ret_type exit(const CmdType &arg) {
             Logged.clear();
+            BasicTrainDb.Clear();
+            for (auto it: BasicTrainMp)
+                BasicTrainDb.Insert(it.first, it.second);
             return ret_type{"bye"};
         }
 

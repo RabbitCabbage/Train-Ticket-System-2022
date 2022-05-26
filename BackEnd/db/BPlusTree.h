@@ -16,6 +16,12 @@ namespace ds {
     class BPlusTree {
         //以下两个值暂定，可能以后根据实际情况更改
     public:
+        void GetSizeInfo() {
+            std::cerr << "The size of Key is " << sizeof(Key) << std::endl;
+            std::cerr << "The size of Info is " << sizeof(Info) << std::endl;
+            std::cerr << "================================" << std::endl;
+        }
+
         struct Node {
             int nxt = -1, before = -1;// B+树叶子节点构成的的链表
             bool isleaf = true;//标记是不是叶节点
@@ -654,7 +660,7 @@ namespace ds {
                 }
                 bool need_brother = RecursionRemove(cur, key, success, parent);
                 if (!need_brother) {
-                    if (cmp.operator()(parent.keys[num], cur.keys[0])) {
+                    if (cmp.operator()(parent.keys[num], cur.keys[0])) {//todo
                         parent.keys[num] = cur.keys[0];
                         if (!index_memory->Write(parent.location, parent)) {
                             ds::WriteException e;
@@ -663,6 +669,7 @@ namespace ds {
                         if (parent.location == root.location)root = parent;
                     }
                     //success = true;
+                    cur = parent;
                     return false;//the removal suceeded and the recursion ended;
                 } else {
                     //否则的话就是需要brother，现在parent的孩子cur，需要一个brother来帮助他
@@ -675,6 +682,7 @@ namespace ds {
                     int merged_index;
                     if (borrow_flag) {
                         //success = true;
+                        cur = parent;
                         return false;//the recursion is ended;
                     } else {
                         if (brother_to_merge_index > num) {
@@ -707,6 +715,7 @@ namespace ds {
                             root = parent;
                         }
                         //success = true;
+                        cur = parent;
                         return false;
                     } else {
                         if (parent.location == root.location) {
@@ -714,6 +723,7 @@ namespace ds {
                                 root = merged_child;
                                 root_index = merged_child.location;
                                 //success = true;
+                                cur = parent;
                                 return false;
                                 //相当于根节点不要了
                             } else {
@@ -723,6 +733,7 @@ namespace ds {
                                 }
                                 root = parent;
                                 //success = true;
+                                cur = parent;
                                 return false;
                             }
                         }
@@ -868,6 +879,7 @@ namespace ds {
             scale = 0;
             root.isleaf = true;
             root.children_num = 0;
+            if (root_index == -1)return;
             if (!index_memory->Write(root_index, root)) {
                 ds::WriteException e;
                 throw e;
@@ -1121,6 +1133,46 @@ namespace ds {
             return iter;
         }
 
+        void Traverse() {
+            int *queue = new int[30];
+            int head = -1, rear = -1;
+            queue[++rear] = root_index;
+            while (head < rear) {
+                int index = queue[++head];
+                Node cur;
+                if (!index_memory->Read(index, cur)) {
+                    ds::ReadException e;
+                    throw e;
+                }
+                std::cout << (cur.isleaf ? "is leaf  " : "");
+                if (!cur.isleaf) {
+                    for (int i = 0; i < cur.children_num; ++i) {
+                        std::cout << cur.keys[i] << " ";
+                        queue[++rear] = cur.children[i];
+                    }
+                    std::cout << std::endl;
+                } else {
+                    for (int i = 0; i < cur.children_num; ++i) {
+                        std::cout << cur.keys[i] << " ";
+                    }
+                    std::cout << std::endl;
+                    for (int i = 0; i < cur.children_num; ++i) {
+                        Block block;
+                        if (!record_memory->Read(cur.children[i], block)) {
+                            ds::ReadException e;
+                            throw e;
+                        }
+                        std::cout << "-------block ";
+                        for (int j = 0; j < block.size; ++j) {
+                            std::cout << block.keys[j] << " ";
+                        }
+                        std::cout << std::endl;
+                    }
+                }
+            }
+            delete[]queue;
+        }
     };
+
 }
 #endif //UNTITLED2_BPLUSTREE_H
