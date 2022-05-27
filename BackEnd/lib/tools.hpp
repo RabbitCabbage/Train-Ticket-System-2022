@@ -11,34 +11,6 @@
 
 namespace hnyls2002 {
 
-    /*template<typename T>
-    void sort(T *begin, T *end) {
-        if (begin >= end - 1)return;
-        int len = end - begin;
-        T mid_val = begin[rand() % len], *l = begin, *r = end - 1;
-        while (l <= r) {
-            while (*l < mid_val)++l;
-            while (mid_val < *r)--r;
-            if (l <= r)std::swap(*l, *r), ++l, --r;
-        }
-        if (l < end)sort(l, end);
-        if (r > begin)sort(begin, r + 1);
-    }
-
-    template<typename T>
-    void sort(T *begin, T *end, bool(*cmp)(const T &, const T &)) {
-        if (begin >= end - 1)return;
-        int len = end - begin;
-        T mid_val = begin[rand() % len], *l = begin, *r = end - 1;
-        while (l <= r) {
-            while (cmp(*l, mid_val))++l;
-            while (cmp(mid_val, *r))--r;
-            if (l <= r)std::swap(*l, *r), ++l, --r;
-        }
-        if (l < end)sort(l, end);
-        if (r > begin)sort(begin, r + 1);
-    }*/
-
     template<typename T>
     void sort(typename sjtu::vector<T>::iterator it1, typename sjtu::vector<T>::iterator it2,
               bool(*cmp)(const T &, const T &)) {
@@ -92,11 +64,11 @@ namespace hnyls2002 {
             return strcmp(s, oth.s) < 0;
         }
 
-        std::string to_string() {
+        std::string to_string() const {
             return std::string(s, siz);
         }
 
-        int to_int() { return std::stoi(to_string()); }
+        int to_int() const { return std::stoi(to_string()); }
 
         friend std::ostream &operator<<(std::ostream &os, fstr<LEN> value) {
             os << value.s;
@@ -120,72 +92,64 @@ namespace hnyls2002 {
     int mon[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     int mon_s[13] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365};
 
+    int time_to_int(int mm, int dd, int hr, int mi) {
+        return mon_s[mm - 1] * 24 * 60 + (dd - 1) * 24 * 60 + hr * 60 + mi + 1;
+    }
+
     struct Time;
 
     struct Date {
-        int mm, dd;
+        int num_d;
 
-        explicit Date(int _mm = 0, int _dd = 0) : mm(_mm), dd(_dd) {}
+        explicit Date(int num = 0) : num_d(num) {}
 
-        explicit Date(const Time &time);// 这里特地设计成只可以显式转化
-
-        Date(const std::string &str) {
+        Date(const std::string &str) {// 为了方便，设置成implicit
             auto tmp = split_cmd(str, '-');
-            mm = std::stoi(tmp[0]);
-            dd = std::stoi(tmp[1]);
+            num_d = time_to_int(std::stoi(tmp[0]), std::stoi(tmp[1]), 0, 0);
         }
 
-        bool operator==(const Date &d) const {
-            return mm == d.mm && dd == d.dd;
-        }
+        explicit Date(const Time &time);
 
-        bool operator<(const Date &d) const {
-            if (mm != d.mm)return mm < d.mm;
-            return dd < d.dd;
-        }
+        bool operator==(const Date &oth) const { return num_d == oth.num_d; }
 
-        int to_int() const { return mon_s[mm - 1] + dd; }
+        bool operator<(const Date &oth) const { return num_d < oth.num_d; }
 
-        static Date to_date(int sum) {
-            Date ret;
-            for (int i = 1; i <= 12; ++i)
-                if (mon_s[i] >= sum) {
-                    sum -= mon_s[i - 1];
-                    ret.mm = i, ret.dd = sum;
-                    break;
-                }
-            return ret;
-        }
-
-        Date operator+(int x) const { return to_date(to_int() + x); }
+        Date operator+(int x) const { return Date(num_d + x * 24 * 60); }
 
         Date &operator+=(int x) { return *this = *this + x; }
 
-        Date operator-(int x) const { return to_date(to_int() - x); }
+        Date operator-(int x) const { return Date(num_d - x * 24 * 60); }
 
         Date &operator-=(int x) { return *this = *this - x; }
 
         friend int operator-(const Date &d1, const Date &d2) {
-            return d1.to_int() - d2.to_int();
+            return (d1.num_d - d2.num_d) / (24 * 60);
         }
     };
 
     struct Time {
-        int mm, dd, hr, mi;
+        int num_t;
 
-        Time(int _mm = 0, int _dd = 0, int _hr = 0, int _mi = 0) : mm(_mm), dd(_dd), hr(_hr), mi(_mi) {}
-
-        Time(const std::string &str) : mm(6), dd(1) {// 只记录时间的话，日期全部设置成儿童节算了
-            auto tmp = split_cmd(str, ':');
-            hr = std::stoi(tmp[0]);
-            mi = std::stoi(tmp[1]);
-        }
+        explicit Time(int num = 0) { num_t = num; };
 
         // 取date的日期部分和time的时间部分
-        Time(const Date &date, const Time &time) : mm(date.mm), dd(date.dd), hr(time.hr), mi(time.mi) {}
+        explicit Time(const std::string &str1, const std::string &str2) {
+            auto tmp1 = split_cmd(str1, '-');
+            auto tmp2 = split_cmd(str2, ':');
+            num_t = time_to_int(std::stoi(tmp1[0]), std::stoi(tmp1[1]), std::stoi(tmp2[0]), std::stoi(tmp2[1]));
+        }
 
         std::string to_string() const {
             std::string ret;
+            int sum = num_t, mm, dd, hr, mi;
+            for (int i = 1; i <= 12; ++i)
+                if (mon_s[i] * 24 * 60 >= sum) {
+                    sum -= mon_s[i - 1] * 24 * 60;
+                    mm = i;
+                    break;
+                }
+            dd = (sum - 1) / (24 * 60) + 1, sum -= (dd - 1) * (24 * 60);
+            hr = (sum - 1) / 60, mi = (sum - 1) % 60;
             ret += (mm < 10 ? '0' + std::to_string(mm) : std::to_string(mm)) + '-';
             ret += (dd < 10 ? '0' + std::to_string(dd) : std::to_string(dd)) + ' ';
             ret += (hr < 10 ? '0' + std::to_string(hr) : std::to_string(hr)) + ':';
@@ -193,58 +157,18 @@ namespace hnyls2002 {
             return ret;
         }
 
-        int to_int() const {
-            return mi + 1 + hr * 60 + (dd - 1) * 24 * 60 + mon_s[mm - 1] * 24 * 60;
-        }
+        Time operator+(int x) const { return Time(num_t + x); }
 
-        static Time to_Time(int sum) {
-            Time ret;
-            for (int i = 1; i <= 12; ++i)
-                if (mon_s[i] * 24 * 60 >= sum) {
-                    sum -= mon_s[i - 1] * 24 * 60;
-                    ret.mm = i;
-                    break;
-                }
-            for (int i = 1; i <= mon[ret.mm]; ++i)
-                if (i * 24 * 60 >= sum) {
-                    sum -= (i - 1) * 24 * 60;
-                    ret.dd = i;
-                    break;
-                }
-            for (int i = 0; i <= 23; ++i)
-                if ((i + 1) * 60 >= sum) {
-                    sum -= i * 60;
-                    ret.hr = i, ret.mi = sum - 1;
-                    break;
-                }
-            return ret;
-        }
+        Time &operator+=(int x) { return *this = *this + x; }
 
-        Time operator+(int x) const {
-            return to_Time(to_int() + x);
-        }
+        friend int operator-(const Time &t1, const Time &t2) { return t1.num_t - t2.num_t; }
 
-        Time &operator+=(int x) {
-            *this = *this + x;
-            return *this;
-        }
+        bool operator<(const Time &oth) const { return num_t < oth.num_t; }
 
-        friend int operator-(const Time &t1, const Time &t2) {
-            return t1.to_int() - t2.to_int();
-        }
-
-        bool operator<(const Time &t) const {
-            return to_int() < t.to_int();
-        }
-
-        Time DayStep(int x) const {// 这个时间往后跳x天
-            Date tmp = Date(*this);
-            tmp += x;
-            return Time{tmp, *this};
-        }
+        Time DayStep(int x) const { return Time(num_t + x * 24 * 60); }// 这个时间往后跳x天
     };
 
-    Date::Date(const Time &time) { this->mm = time.mm, this->dd = time.dd; }// 只取time的日期部分
+    Date::Date(const Time &time) : num_d((time.num_t - 1) / (24 * 60) * (24 * 60)+1) {}// 取time的日期部分
 
 }
 
