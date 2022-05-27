@@ -18,7 +18,9 @@ namespace ds {
     public:
         void GetSizeInfo() {
             std::cerr << "The size of Key is " << sizeof(Key) << std::endl;
+            std::cerr << "So the proper branch num is " << 1.0*(4096 - 17) / (4 + sizeof(Key)) << std::endl;
             std::cerr << "The size of Info is " << sizeof(Info) << std::endl;
+            std::cerr << "So the proper element num is " << 1.0*(4096 - 4) / (sizeof(Info) + sizeof(Key)) << std::endl;
             std::cerr << "================================" << std::endl;
         }
 
