@@ -8,6 +8,7 @@
 #include <fstream>
 #include <cstring>
 #include "FileException.h"
+
 namespace ds {
     template<typename T>
     class MemoryRiver {
@@ -15,95 +16,81 @@ namespace ds {
         char *file_name;
     public:
         MemoryRiver(char *fn) {
-            std::fstream file;
+            FILE *f = nullptr;
             file_name = new char[strlen(fn) + 1];
             strcpy(file_name, fn);
-            file.clear();
-            file.open(file_name, std::ios::in);
-            if (!file) {
-                file.clear();
-                file.open(file_name, std::ios::out | std::ios::app);
-            }
-            if (!file.is_open()){
+            f = fopen(file_name, "ab");
+            if (f == nullptr) {
                 ds::OpenException e;
                 throw e;
-            }
-            file.close();
+            } else fclose(f);
         }
 
         ~MemoryRiver() {
             delete[]file_name;
         }
 
-        bool Write(const int& index, const T &t) {
-            std::fstream file;
-            file.clear();
-//            if(file.fail())printf("%s","clear error\n");
-            file.open(file_name);
-//            if(file.fail())printf("%s","open error\n");
-            if (!file.is_open()){
+        bool Write(const int &index, const T &t) {
+            if (index < 0)return false;
+            FILE *f = nullptr;
+            f = fopen(file_name, "rb+");
+            if (f == nullptr) {
                 ds::OpenException e;
                 throw e;
             }
-            file.seekp(index,std::ios::beg);
-//            if(file.fail())printf("%s","seek error\n");
-            file.write(reinterpret_cast<const char *>(&t), sizeof(T));
-            if (file.fail()) {
-//                printf("%s", "mr write failed\n");
-                return false;
-            }
-            file.close();
+            fseek(f, index, SEEK_SET);
+            fwrite(&t, sizeof(T), 1, f);
+            if (ferror(f)) return false;
+            fclose(f);
             return true;
         }
 
-        bool Read(const int& index, T &res) {
-            std::fstream file;
-            file.clear();
-            file.open(file_name);
-            if (!file.is_open()){
+        bool Read(const int &index, T &res) {
+            if (index < 0)return false;
+            FILE *f = nullptr;
+            f = fopen(file_name, "rb");
+            if (f == nullptr) {
                 ds::OpenException e;
                 throw e;
             }
-            file.seekg(index);
-            file.read(reinterpret_cast<char *>(&res), sizeof(T));
-            if (file.fail()) {
-//                printf("%s", "mr read failed");
-                return false;
-            }
-            file.close();
+            fseek(f, 0, SEEK_END);
+            if (ftell(f) == 0)return false;
+            fseek(f, index, SEEK_SET);
+            fread(&res, sizeof(T), 1, f);
+            if (ferror(f)) return false;
+            fclose(f);
             return true;
         }
 
         int Append(const T &t) {
-            std::fstream file;
+            FILE *f = nullptr;
             //write a T at the end of the file and return the location writing in
-            file.clear();
-            file.open(file_name);
-            if (!file.is_open()){
+            f = fopen(file_name, "ab");
+            if (f == nullptr) {
                 ds::OpenException e;
                 throw e;
             }
-            file.seekp(0, std::ios::end);
-            int location = file.tellp();
-            file.write(reinterpret_cast<const char *>(&t), sizeof(T));
-            if (file.fail()){
+            fseek(f, 0, SEEK_END);
+            int location = ftell(f);
+            fwrite(&t, sizeof(T), 1, f);
+            if (ferror(f)) {
                 ds::AppendException e;
                 throw e;
             }
-            file.close();
+            fclose(f);
             return location;
         }
-        int FindEnd(){
-            std::fstream file;
-            file.clear();
-            file.open(file_name);
-            if (!file.is_open()){
+
+        int FindEnd() {
+            FILE *f = nullptr;
+            f = fopen(file_name, "rb");
+            if (f == nullptr) {
                 ds::OpenException e;
                 throw e;
             }
-            file.seekp(0, std::ios::end);
-            int location = file.tellp();
-            file.close();
+            fseek(f, 0, SEEK_END);
+            int location = ftell(f);
+            fclose(f);
             return location;
         }
     };
