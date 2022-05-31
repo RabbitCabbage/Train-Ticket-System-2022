@@ -31,38 +31,33 @@ namespace ds {
         }
 
         bool Write(const int &index, const T &t) {
+            if (index < 0)return false;
             FILE *f = nullptr;
-//            if(file.fail())printf("%s","clear error\n");
             f = fopen(file_name, "rb+");
-//            if(file.fail())printf("%s","open error\n");
             if (f == nullptr) {
                 ds::OpenException e;
                 throw e;
             }
-            fseek(f, index, 0);
-//            if(file.fail())printf("%s","seek error\n");
+            fseek(f, index, SEEK_SET);
             fwrite(&t, sizeof(T), 1, f);
-            if (ferror(f)) {
-//                printf("%s", "mr write failed\n");
-                return false;
-            }
+            if (ferror(f)) return false;
             fclose(f);
             return true;
         }
 
         bool Read(const int &index, T &res) {
+            if (index < 0)return false;
             FILE *f = nullptr;
             f = fopen(file_name, "rb");
             if (f == nullptr) {
                 ds::OpenException e;
                 throw e;
             }
-            fseek(f, index, 0);
+            fseek(f, 0, SEEK_END);
+            if (ftell(f) == 0)return false;
+            fseek(f, index, SEEK_SET);
             fread(&res, sizeof(T), 1, f);
-            if (ferror(f)) {
-//                printf("%s", "mr read failed");
-                return false;
-            }
+            if (ferror(f)) return false;
             fclose(f);
             return true;
         }
@@ -75,7 +70,7 @@ namespace ds {
                 ds::OpenException e;
                 throw e;
             }
-            fseek(f, 0, 2);
+            fseek(f, 0, SEEK_END);
             int location = ftell(f);
             fwrite(&t, sizeof(T), 1, f);
             if (ferror(f)) {
@@ -93,7 +88,7 @@ namespace ds {
                 ds::OpenException e;
                 throw e;
             }
-            fseek(f, 0, 2);
+            fseek(f, 0, SEEK_END);
             int location = ftell(f);
             fclose(f);
             return location;
