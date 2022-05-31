@@ -23,7 +23,7 @@ void test_logic() {
         }
     }
     clock_t end = clock();
-    std::cout << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
+    //std::cout << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 }
 
 /*void show() {

@@ -31,8 +31,10 @@ namespace hnyls2002 {
                    DayTrainDb(STORAGE_DIR "index5", STORAGE_DIR "record5"),
                    OrderDb(STORAGE_DIR "index6", STORAGE_DIR "record6"),
                    PendDb(STORAGE_DIR "index7", STORAGE_DIR "record7") {
-            auto it = BasicTrainDb.FindBigger(0);
-            for (; !it.AtEnd(); ++it)BasicTrainMp.insert({(*it).first, (*it).second});
+            for (auto it = BasicTrainDb.FindBigger(0); !it.AtEnd(); ++it)
+                BasicTrainMp.insert({(*it).first, (*it).second});
+            for (auto it = UserDb.FindBigger(0); !it.AtEnd(); ++it)
+                UserMp.insert({(*it).first, (*it).second});
         }
 
         void GetSize() {
@@ -65,6 +67,7 @@ namespace hnyls2002 {
 
         // UserName
         ds::BPlusTree<size_t, UserInfo, 509, 30> UserDb;
+        sjtu::map<size_t, UserInfo> UserMp;
 
         // UserName
         sjtu::map<size_t, bool> Logged;
@@ -139,25 +142,24 @@ namespace hnyls2002 {
 
         ret_type add_user(const CmdType &arg) {
             size_t u_h = Hash(arg['u']), c_h = Hash(arg['c']);
-            if (UserDb.GetSize()) { // 不是第一次创建用户时
+            if (!UserMp.empty()) { // 不是第一次创建用户时
                 if (Logged.find(c_h) == Logged.end())return ret_value(-1);// 没有登录
-                if (UserDb[c_h].privilege.to_int() <= std::stoi(arg['g']))return ret_value(-1);// 权限不满足要求
-                if (UserDb.Find(u_h).first)return ret_value(-1);// 已经存在用户u
+                if (UserMp[c_h].privilege.to_int() <= std::stoi(arg['g']))return ret_value(-1);// 权限不满足要求
+                if (UserMp.find(u_h) != UserMp.end())return ret_value(-1);// 已经存在用户u
             }
             UserInfo User;
             User.UserName = arg['u'], User.Passwd = arg['p'], User.Name = arg['n'];
             User.mailAdd = arg['m'], User.privilege = arg['g'];
             User.OrderNum = 0;
-            //UserDb[arg['u']] = User;
-            UserDb.Insert(u_h, User);
+            UserMp.insert({u_h, User});
             return ret_value(0);
         }
 
         ret_type login(const CmdType &arg) {
             size_t u_h = Hash(arg['u']);
-            if (!UserDb.Find(u_h).first)return ret_value(-1);// 用户不存在
+            if (UserMp.find(u_h) == UserMp.end())return ret_value(-1);// 用户不存在
             if (Logged.find(u_h) != Logged.end())return ret_value(-1);// 用户已经登录
-            if (UserDb[u_h].Passwd != arg['p'])return ret_value(-1);// 密码不对
+            if (UserMp[u_h].Passwd != arg['p'])return ret_value(-1);// 密码不对
             Logged[u_h] = true;
             return ret_value(0);
         }
@@ -172,30 +174,29 @@ namespace hnyls2002 {
         bool JudgeUserQM(const CmdType &arg) {// 用户c要查询（修改）用户u的时候
             size_t u_h = Hash(arg['u']), c_h = Hash(arg['c']);
             if (Logged.find(c_h) == Logged.end())return false;// 没有登录
-            if (!UserDb.Find(u_h).first)return false;// 没有用户u
+            if (UserMp.find(u_h) == UserMp.end())return false;// 没有用户u
             if (arg['u'] == arg['c'])return true;// 用户名相同，不需要判断权限（坑！！！）
-            if (UserDb[c_h].privilege.to_int() <= UserDb[u_h].privilege.to_int())return false;// 不满足权限要求
+            if (UserMp[c_h].privilege.to_int() <= UserMp[u_h].privilege.to_int())return false;// 不满足权限要求
             return true;
         }
 
         ret_type query_profile(const CmdType &arg) {
             size_t u_h = Hash(arg['u']);
             if (!JudgeUserQM(arg))return ret_value(-1);
-            UserInfo User = UserDb[u_h];
+            UserInfo User = UserMp[u_h];
             return ret_type{User.to_string()};
         }
 
         ret_type modify_profile(const CmdType &arg) {
             size_t u_h = Hash(arg['u']), c_h = Hash(arg['c']);
             if (!JudgeUserQM(arg))return ret_value(-1);
-            if (!arg['g'].empty() && UserDb[c_h].privilege.to_int() <= std::stoi(arg['g']))return ret_value(-1);
-            UserInfo User = UserDb[u_h];// 最好不用引用传递，引用似乎不能在外存上实现
+            if (!arg['g'].empty() && UserMp[c_h].privilege.to_int() <= std::stoi(arg['g']))return ret_value(-1);
+            UserInfo User = UserMp[u_h];// 最好不用引用传递，引用似乎不能在外存上实现
             if (!arg['p'].empty())User.Passwd = arg['p'];
             if (!arg['n'].empty())User.Name = arg['n'];
             if (!arg['m'].empty())User.mailAdd = arg['m'];
             if (!arg['g'].empty())User.privilege = arg['g'];
-            //UserDb[arg['u']] = User;
-            UserDb.Modify(u_h, User);
+            UserMp[u_h] = User;
             return ret_type{User.to_string()};
         }
 
@@ -511,7 +512,7 @@ namespace hnyls2002 {
             DayTrainDb.Insert({i_h, Day}, tmp);
 //            }
             auto DayTrain = DayTrainDb[{i_h, Day}];
-            auto User = UserDb[u_h];
+            auto User = UserMp[u_h];
             int RemainSeat = DayTrain.Get_Remain(St1.Rank, St2.Rank);
             int TicketNum = std::stoi(arg['n']);
             if (RemainSeat < TicketNum && (arg['q'].empty() || arg['q'] == "false")) return ret_value(-1);
@@ -538,8 +539,7 @@ namespace hnyls2002 {
             order.pl = St1.Rank, order.pr = St2.Rank, order.TimeStamp = arg.TimeStamp;
             //OrderDb[{User.UserName, -(++User.OrderNum)}] = order;
             OrderDb.Insert({Hash(User.UserName.to_string()), -(++User.OrderNum)}, order);
-            //UserDb[arg['u']] = User;
-            UserDb.Modify(u_h, User);
+            UserMp[u_h] = User;
             if (order.Status == success)return ret_type{std::to_string(tik.Cost * TicketNum)};
             else return ret_type{"queue"};
         }
@@ -549,7 +549,7 @@ namespace hnyls2002 {
             if (Logged.find(u_h) == Logged.end())return ret_value(-1);// 没有登录
             ret_type ret;
             auto it = OrderDb.FindBigger({u_h, -0x3f3f3f3f});
-            ret.push_back(std::to_string(UserDb[u_h].OrderNum));
+            ret.push_back(std::to_string(UserMp[u_h].OrderNum));
             for (; !it.AtEnd() && (*it).first.first == u_h; ++it) {
                 std::string tmp;
                 tmp += StatusToString[(*it).second.Status] + ' ';
@@ -562,7 +562,7 @@ namespace hnyls2002 {
         ret_type refund_ticket(const CmdType &arg) {
             size_t u_h = Hash(arg['u']);
             if (Logged.find(u_h) == Logged.end())return ret_value(-1);// 没有登录
-            int tot_order = UserDb[u_h].OrderNum;
+            int tot_order = UserMp[u_h].OrderNum;
             int id = arg['n'].empty() ? tot_order : tot_order - std::stoi(arg['n']) + 1;
             if (id <= 0)return ret_value(-1);// 没有这么多订单
             auto order = OrderDb[{u_h, -id}];// order 要退的订单 order2 要候补的订单
@@ -613,6 +613,9 @@ namespace hnyls2002 {
             BasicTrainDb.Clear();
             for (auto it: BasicTrainMp)
                 BasicTrainDb.Insert(it.first, it.second);
+            UserDb.Clear();
+            for (auto it: UserMp)
+                UserDb.Insert(it.first, it.second);
             return ret_type{"bye"};
         }
 
