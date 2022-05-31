@@ -5,9 +5,10 @@ void test_logic() {
 /*
     system("rm index*");
     system("rm record*");
-    freopen("./testdata/normal/basic_4/my.in", "r", stdin);
-    freopen("./testdata/normal/basic_4/my.out", "w", stdout);
+    freopen("./testdata/normal/basic_2/1.in", "r", stdin);
+    freopen("./testdata/normal/basic_2/my.out", "w", stdout);
 */
+    std::ios::sync_with_stdio(false);
     clock_t sts = clock();
     hnyls2002::System sys;
     sys.GetSize();
@@ -116,6 +117,14 @@ void test_bptree() {
 
 int main() {
     test_logic();
+/*
+    freopen("test.out", "w", stdout);
+    hnyls2002::Time t("1-1", "00:00");
+    for (int i = 1; i <= 365 * 24 * 60; ++i, t += 1) {
+        auto f = hnyls2002::Date(t);
+        std::cout << t.to_string() << " " << f.num_d << std::endl;
+    }
+*/
 
 /*
     system("rm ./index");
