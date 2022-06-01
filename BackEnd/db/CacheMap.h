@@ -10,7 +10,7 @@
 
 //要求max_size最好是个整数
 namespace ds {
-    template<typename Key, typename Info, const int max_size = 17, const int max_key_num = 5, const int max_rcd_num = 5, class Hahs=std::hash<Key>, class KeyCompare = std::less<Key>>
+    template<typename Key, typename Info, const int max_size = 17, const int max_key_num = 5, const int max_rcd_num = 5, class Hash=std::hash<Key>, class KeyCompare = std::less<Key>>
 
     class CacheMap {
     private:
