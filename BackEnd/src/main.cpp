@@ -11,7 +11,7 @@ void test_logic() {
     std::ios::sync_with_stdio(false);
     clock_t sts = clock();
     hnyls2002::System sys;
-    sys.GetSize();
+    //sys.GetSize();
     std::string str;
     while (getline(std::cin, str)) {
         //std::cerr << "Command : " << str << std::endl;
@@ -23,7 +23,7 @@ void test_logic() {
         }
     }
     clock_t end = clock();
-    std::cout << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
+    std::cerr << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
 }
 
 /*void show() {
