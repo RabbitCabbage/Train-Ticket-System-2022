@@ -2,12 +2,10 @@
 #include <iostream>
 
 void test_logic() {
-/*
     system("rm index*");
     system("rm record*");
-    freopen("./testdata/normal/basic_2/1.in", "r", stdin);
-    freopen("./testdata/normal/basic_2/my.out", "w", stdout);
-*/
+    freopen("./testdata/normal/basic_5/1.in", "r", stdin);
+    freopen("./testdata/normal/basic_5/my.out", "w", stdout);
     std::ios::sync_with_stdio(false);
     clock_t sts = clock();
     hnyls2002::System sys;

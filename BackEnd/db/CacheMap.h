@@ -43,7 +43,7 @@ namespace ds {
         //直接操作到B+Tree，并且存入Cache
         bool Insert(const Key &key, const Info &info) {
             if (tree->Insert(key, info)) {
-                int hash_index = (hash_func()(key) % max_size);
+                int hash_index = (hash_func.operator()(key) % max_size);
                 //然后把这个值放到缓存里面,这个值肯定是先前不存在的，不用检查碰撞了
                 if (dirty[hash_index])tree->Modify(index[hash_index], information[hash_index]);
                 valid[hash_index] = true;
@@ -59,7 +59,7 @@ namespace ds {
         //直接操作到B+tree上
         bool Remove(const Key &key) {
             if (tree->Remove(key)) {
-                int hash_index = (hash_func()(key) % max_size);
+                int hash_index = (hash_func.operator()(key) % max_size);
                 if (valid[hash_index] && !cmp.operator()(key, index[hash_index]) &&
                     !cmp.operator()(index[hash_index], key))
                     valid[hash_index] = dirty[hash_index] = false;
@@ -73,7 +73,7 @@ namespace ds {
 //如果没有找到，返回false，这时的返回struct是随机值，不应该被访问
 //访问之后就要存入Cache，便于下次访问
         std::pair<bool, std::pair<Key, Info>> Find(const Key &key) {
-            int hash_index = (hash_func()(key) % max_size);
+            int hash_index = (hash_func.operator()(key) % max_size);
             if (valid[hash_index]) {
                 if (!cmp.operator()(key, index[hash_index]) && !cmp.operator()(index[hash_index], key))
                     return {true, {index[hash_index], information[hash_index]}};
@@ -94,6 +94,7 @@ namespace ds {
                 }
             } else {
                 auto res = tree->Find(key);
+                if (!res.first)return res;
                 dirty[hash_index] = false;
                 valid[hash_index] = true;
                 index[hash_index] = res.second.first;
@@ -102,12 +103,16 @@ namespace ds {
             }
         }
 
+        Info operator[](const Key &key) {
+            return Find(key).second.second;
+        }
+
 //修改一个元素，参数是要修改元素的键值和修改之后的信息
 //返回一个bool，修改成功返回true，否则返回false
 //如果这个要修改的元素在B+树中不存在就会返回false
 //修改的时候要进行valid,index,dirty的检查
         bool Modify(const Key &key, const Info &new_info) {
-            int hash_index = (hash_func()(key) % max_size);
+            int hash_index = (hash_func.operator()(key) % max_size);
             if (valid[hash_index]) {
                 if (!cmp.operator()(key, index[hash_index]) && !cmp.operator()(index[hash_index], key)) {
                     dirty[hash_index] = true;
