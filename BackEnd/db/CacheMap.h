@@ -10,7 +10,7 @@
 
 //要求max_size最好是个整数
 namespace ds {
-    template<typename Key, typename Info, const int max_size = 17, const int max_key_num = 5, const int max_rcd_num = 5, class KeyCompare = std::less<Key>>
+    template<typename Key, typename Info, const int max_size = 17, const int max_key_num = 5, const int max_rcd_num = 5, class Hahs=std::hash<Key>, class KeyCompare = std::less<Key>>
 
     class CacheMap {
     private:
@@ -19,6 +19,7 @@ namespace ds {
         Key index[max_size];//记下这时的这个hash所对应的是什么键值
         Info information[max_size];
         KeyCompare cmp;
+        Hash hash_func;
     public:
         ds::BPlusTree<Key, Info, max_key_num, max_rcd_num, KeyCompare> *tree;
 
@@ -42,7 +43,7 @@ namespace ds {
         //直接操作到B+Tree，并且存入Cache
         bool Insert(const Key &key, const Info &info) {
             if (tree->Insert(key, info)) {
-                int hash_index = (std::hash<Key>()(key) % max_size);
+                int hash_index = (hash_func()(key) % max_size);
                 //然后把这个值放到缓存里面,这个值肯定是先前不存在的，不用检查碰撞了
                 if (dirty[hash_index])tree->Modify(index[hash_index], information[hash_index]);
                 valid[hash_index] = true;
@@ -58,7 +59,7 @@ namespace ds {
         //直接操作到B+tree上
         bool Remove(const Key &key) {
             if (tree->Remove(key)) {
-                int hash_index = (std::hash<Key>()(key) % max_size);
+                int hash_index = (hash_func()(key) % max_size);
                 if (valid[hash_index] && !cmp.operator()(key, index[hash_index]) &&
                     !cmp.operator()(index[hash_index], key))
                     valid[hash_index] = dirty[hash_index] = false;
@@ -72,7 +73,7 @@ namespace ds {
 //如果没有找到，返回false，这时的返回struct是随机值，不应该被访问
 //访问之后就要存入Cache，便于下次访问
         std::pair<bool, std::pair<Key, Info>> Find(const Key &key) {
-            int hash_index = (std::hash<Key>()(key) % max_size);
+            int hash_index = (hash_func()(key) % max_size);
             if (valid[hash_index]) {
                 if (!cmp.operator()(key, index[hash_index]) && !cmp.operator()(index[hash_index], key))
                     return {true, {index[hash_index], information[hash_index]}};
@@ -106,7 +107,7 @@ namespace ds {
 //如果这个要修改的元素在B+树中不存在就会返回false
 //修改的时候要进行valid,index,dirty的检查
         bool Modify(const Key &key, const Info &new_info) {
-            int hash_index = (std::hash<Key>()(key) % max_size);
+            int hash_index = (hash_func()(key) % max_size);
             if (valid[hash_index]) {
                 if (!cmp.operator()(key, index[hash_index]) && !cmp.operator()(index[hash_index], key)) {
                     dirty[hash_index] = true;
