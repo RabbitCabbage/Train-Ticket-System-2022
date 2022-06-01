@@ -17,19 +17,16 @@ namespace ds {
         //以下两个值暂定，可能以后根据实际情况更改
     public:
         struct Node {
-            int nxt = -1, before = -1;// B+树叶子节点构成的的链表
+            int location = -1;
             bool isleaf = true;//标记是不是叶节点
             int children_num = 0;
             int children[max_key_num];
             Key keys[max_key_num];
-            int location = -1;
 
             void operator()(Node lhs, const Node &rhs) {
                 lhs.location = rhs.location;
                 lhs.isleaf = rhs.isleaf;
                 lhs.children_num = rhs.children_num;
-                lhs.nxt = rhs.nxt;
-                lhs.before = rhs.before;
                 for (int i = 0; i < rhs.children_num; ++i)lhs.children[i] = rhs.children[i];
                 for (int i = 0; i < rhs.children_num; ++i)lhs.keys[i] = rhs.keys[i];
             }
@@ -37,6 +34,8 @@ namespace ds {
 
 
         struct Block {
+            int next = -1, prior = -1;
+            int location = -1;
             int size = 0;
             Key keys[max_rcd_num];
             Info record[max_rcd_num];
@@ -140,22 +139,7 @@ namespace ds {
             new_node.children_num = max_key_num - max_key_num / 2;
             cur.children_num = max_key_num / 2;
             new_node_loc = new_node.location = index_memory->FindEnd();
-            new_node.before = cur.location;
-            new_node.nxt = cur.nxt;
             new_node.isleaf = cur.isleaf;//after split they are in the same level;
-            if (cur.nxt != -1) {
-                Node next_node;
-                if (!index_memory->Read(cur.nxt, next_node)) {
-                    ds::ReadException e;
-                    throw e;
-                }
-                next_node.before = new_node_loc;
-                if (!index_memory->Write(cur.nxt, next_node)) {
-                    ds::WriteException e;
-                    throw e;
-                }
-            }
-            cur.nxt = new_node.location;
             index_memory->Append(new_node);
             splited_child_index = num;//the info about new node are recorded by reference
             if (!index_memory->Write(cur.location, cur)) {
@@ -201,6 +185,7 @@ namespace ds {
                     block.record[0] = info;
                     block.keys[0] = key;
                     block.size = 1;
+                    block.location = record_memory->FindEnd();
                     cur.children[0] = record_memory->Append(block);
                     cur.keys[0] = block.keys[0];
                     cur.children_num++;
@@ -264,6 +249,22 @@ namespace ds {
                     }
                     block.size = max_rcd_num / 2;
                     new_block.size = max_rcd_num - block.size;
+                    new_block.next = block.next;
+                    block.next = record_memory->FindEnd();
+                    new_block.prior = block.location;
+                    new_block.location = record_memory->FindEnd();
+                    if (new_block.next != -1) {
+                        Block after;
+                        if (!record_memory->Read(new_block.next, after)) {
+                            ds::ReadException e;
+                            throw e;
+                        }
+                        after.prior = new_block.location;
+                        if (!record_memory->Write(new_block.next, after)) {
+                            ds::WriteException e;
+                            throw e;
+                        }
+                    }
                     int new_block_loc = record_memory->Append(new_block);
                     if (!record_memory->Write(cur.children[num], block)) {
                         ds::WriteException e;
@@ -289,7 +290,6 @@ namespace ds {
                             root.keys[0] = cur.keys[0];
                             root.keys[1] = new_node.keys[0];
                             root.isleaf = false;
-                            root.nxt = root.before = -1;
                             root.location = index_memory->FindEnd();
                             root_index = index_memory->Append(root);
                             //success = true;
@@ -343,7 +343,6 @@ namespace ds {
                             root.keys[0] = parent.keys[0];
                             root.keys[1] = new_node.keys[0];
                             root.isleaf = false;
-                            root.nxt = root.before = -1;
                             root.location = index_memory->FindEnd();
                             root_index = index_memory->Append(root);
                             //success = true;
@@ -443,21 +442,6 @@ namespace ds {
                 front.children[i] = rear.children[j];
                 front.keys[i] = rear.keys[j];
             }
-            if (rear.isleaf) {
-                front.nxt = rear.nxt;
-                if (rear.nxt != -1) {
-                    Node after;
-                    if (!index_memory->Read(rear.nxt, after)) {
-                        ds::ReadException e;
-                        throw e;
-                    }
-                    after.before = front.location;
-                    if (!index_memory->Write(rear.nxt, after)) {
-                        ds::WriteException e;
-                        throw e;
-                    }
-                }
-            }
             front.children_num += rear.children_num;
             if (!index_memory->Write(front.location, front)) {
                 ds::WriteException e;
@@ -471,6 +455,19 @@ namespace ds {
                 front.keys[i] = rear.keys[j];
             }
             front.size += rear.size;
+            front.next = rear.next;
+            if (front.next != -1) {
+                Block after;
+                if (!record_memory->Read(front.next, after)) {
+                    ds::ReadException e;
+                    throw e;
+                }
+                after.prior = front.location;
+                if (!record_memory->Write(front.next, after)) {
+                    ds::WriteException e;
+                    throw e;
+                }
+            }
             if (!record_memory->Write(front_loc, front)) {
                 ds::WriteException e;
                 throw e;
@@ -654,7 +651,7 @@ namespace ds {
                 }
                 bool need_brother = RecursionRemove(cur, key, success, parent);
                 if (!need_brother) {
-                    if (cmp.operator()(parent.keys[num], cur.keys[0])) {//todo
+                    if (cmp.operator()(parent.keys[num], cur.keys[0])) {
                         parent.keys[num] = cur.keys[0];
                         if (!index_memory->Write(parent.location, parent)) {
                             ds::WriteException e;
@@ -981,10 +978,8 @@ namespace ds {
             Key key;
             Info info;
             BPlusTree<Key, Info, max_key_num, max_rcd_num, KeyCompare> *this_bpt = nullptr;
-            Node leaf_node;//所在的leaf node
             Block block;//所在的block
             int block_index;//在block中的标号
-            int node_index;
             bool at_end = false;
         public:
             iterator(BPlusTree<Key, Info, max_key_num, max_rcd_num, KeyCompare> *bpt) {
@@ -999,40 +994,22 @@ namespace ds {
                 }
                 if (block_index == block.size - 1) {
                     //我们需要读下一块
-                    if (node_index == leaf_node.children_num - 1) {
-                        //我们需要找到下一个leaf node
-                        if (at_end) {
-                            ds::IteratorOutBound e;
-                            throw e;
-                        }
-                        if (leaf_node.nxt == -1) {
-                            at_end = true;
-                            return *this;
-                        }
-                        if (!this_bpt->index_memory.Read(leaf_node.nxt, leaf_node)) {
-                            ds::ReadException e;
-                            throw e;
-                        }
-                        if (!this_bpt->record_memory.Read(leaf_node.children[0], block)) {
-                            ds::ReadException e;
-                            throw e;
-                        }
-                        node_index = 0;//block在这个node中是第几块
-                        block_index = 0;//这个key值是第几个
-                        info = block.record[0];
-                        key = block.keys[0];
-                        return tmp;
-                    } else {
-                        if (!this_bpt->record_memory.Read(leaf_node.children[node_index + 1], block)) {
-                            ds::ReadException e;
-                            throw e;
-                        }
-                        node_index += 1;//block在这个node中是第几块
-                        block_index = 0;//这个key值是第几个
-                        info = block.record[0];
-                        key = block.keys[0];
+                    if (at_end) {
+                        ds::IteratorOutBound e;
+                        throw e;
+                    }
+                    if (block.next == -1) {
+                        at_end = true;
                         return tmp;
                     }
+                    if (!this_bpt->record_memory->Read(block.next, block)) {
+                        ds::ReadException e;
+                        throw e;
+                    }
+                    block_index = 0;//这个key值是第几个
+                    info = block.record[0];
+                    key = block.keys[0];
+                    return tmp;
                 } else {
                     block_index += 1;//这个key值是第几个
                     info = block.record[block_index];
@@ -1048,40 +1025,22 @@ namespace ds {
                 }
                 if (block_index == block.size - 1) {
                     //我们需要读下一块
-                    if (node_index == leaf_node.children_num - 1) {
-                        //我们需要找到下一个leaf node
-                        if (at_end) {
-                            ds::IteratorOutBound e;
-                            throw e;
-                        }
-                        if (leaf_node.nxt == -1) {
-                            at_end = true;
-                            return *this;
-                        }
-                        if (!this_bpt->index_memory->Read(leaf_node.nxt, leaf_node)) {
-                            ds::ReadException e;
-                            throw e;
-                        }
-                        if (!this_bpt->record_memory->Read(leaf_node.children[0], block)) {
-                            ds::ReadException e;
-                            throw e;
-                        }
-                        node_index = 0;//block在这个node中是第几块
-                        block_index = 0;//这个key值是第几个
-                        info = block.record[0];
-                        key = block.keys[0];
-                        return *this;
-                    } else {
-                        if (!this_bpt->record_memory->Read(leaf_node.children[node_index + 1], block)) {
-                            ds::ReadException e;
-                            throw e;
-                        }
-                        node_index += 1;//block在这个node中是第几块
-                        block_index = 0;//这个key值是第几个
-                        info = block.record[0];
-                        key = block.keys[0];
+                    if (at_end) {
+                        ds::IteratorOutBound e;
+                        throw e;
+                    }
+                    if (block.next == -1) {
+                        at_end = true;
                         return *this;
                     }
+                    if (!this_bpt->record_memory->Read(block.next, block)) {
+                        ds::ReadException e;
+                        throw e;
+                    }
+                    block_index = 0;//这个key值是第几个
+                    info = block.record[0];
+                    key = block.keys[0];
+                    return *this;
                 } else {
                     block_index += 1;//这个key值是第几个
                     info = block.record[block_index];
@@ -1110,8 +1069,10 @@ namespace ds {
         iterator FindBigger(const Key &wanted) {
             iterator iter(this);
             bool tmp;
-            bool find = RecursionFindBigger(root, wanted, iter.block, iter.leaf_node, iter.key, iter.info,
-                                            iter.node_index,
+            Node leaf_node;
+            int node_index;
+            bool find = RecursionFindBigger(root, wanted, iter.block, leaf_node, iter.key, iter.info,
+                                            node_index,
                                             iter.block_index, tmp);
             if (!find) {
                 iter.at_end = true;
