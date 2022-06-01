@@ -94,6 +94,7 @@ namespace ds {
                 }
             } else {
                 auto res = tree->Find(key);
+                if (!res.first)return res;
                 dirty[hash_index] = false;
                 valid[hash_index] = true;
                 index[hash_index] = res.second.first;
