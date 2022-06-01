@@ -100,7 +100,7 @@ namespace hnyls2002 {
         };
 
         //StName
-        ds::BPlusTree<std::pair<size_t, fstr<TrainIDMax> >, StInfo, 226, 85> StDb;
+        ds::BPlusTree<std::pair<size_t, fstr<TrainIDMax> >, StInfo, 226, 170> StDb;
 
         struct DayTrainInfo {
             int RemainSeats[StNumMax]{};// 第1项为SeatNum，以此类推
@@ -151,7 +151,7 @@ namespace hnyls2002 {
             User.UserName = arg['u'], User.Passwd = arg['p'], User.Name = arg['n'];
             User.mailAdd = arg['m'], User.privilege = arg['g'];
             User.OrderNum = 0;
-            UserMp.insert({u_h, User});
+            UserMp.insert({u_h, User}), UserDb.Insert(u_h, User);
             return ret_value(0);
         }
 
@@ -196,7 +196,7 @@ namespace hnyls2002 {
             if (!arg['n'].empty())User.Name = arg['n'];
             if (!arg['m'].empty())User.mailAdd = arg['m'];
             if (!arg['g'].empty())User.privilege = arg['g'];
-            UserMp[u_h] = User;
+            UserMp[u_h] = User, UserDb.Modify(u_h, User);
             return ret_type{User.to_string()};
         }
 
@@ -239,7 +239,7 @@ namespace hnyls2002 {
                 if (i == 1)Train.TimeTable[i].second = BasicTime;
             }
 
-            BasicTrainMp.insert({i_h, BasicTrain});
+            BasicTrainMp.insert({i_h, BasicTrain}), BasicTrainDb.Insert(i_h, BasicTrain);
             TrainDb.Insert(i_h, Train);
 
             return ret_value(0);
@@ -250,7 +250,7 @@ namespace hnyls2002 {
             if (BasicTrainMp.find(i_h) == BasicTrainMp.end())return ret_value(-1);// 没有这个车次
             if (BasicTrainMp[i_h].is_released)return ret_value(-1);// 已经发布了
             // 所有对于BasicTrain的操作，只操作Mp。
-            BasicTrainMp.erase(BasicTrainMp.find(i_h));
+            BasicTrainMp.erase(BasicTrainMp.find(i_h)), BasicTrainDb.Remove(i_h);
             TrainDb.Remove(i_h);
             return ret_value(0);
         }
@@ -258,9 +258,10 @@ namespace hnyls2002 {
         ret_type release_train(const CmdType &arg) {// 先不把DayTrain加进去，有购票的时候再加？
             size_t i_h = Hash(arg['i']);
             if (BasicTrainMp.find(i_h) == BasicTrainMp.end())return ret_value(-1);// 没有找到这辆车
-            auto &BasicTrain = BasicTrainMp[i_h];
+            auto BasicTrain = BasicTrainMp[i_h];
             if (BasicTrain.is_released)return ret_value(-1);// 已经发布了
             BasicTrain.is_released = true;
+            BasicTrainMp[i_h] = BasicTrain, BasicTrainDb.Modify(i_h, BasicTrain);
 
             auto Train = TrainDb[i_h];
             // 火车发布了，应该就要添加StInfo数据库了
@@ -539,7 +540,7 @@ namespace hnyls2002 {
             order.pl = St1.Rank, order.pr = St2.Rank, order.TimeStamp = arg.TimeStamp;
             //OrderDb[{User.UserName, -(++User.OrderNum)}] = order;
             OrderDb.Insert({Hash(User.UserName.to_string()), -(++User.OrderNum)}, order);
-            UserMp[u_h] = User;
+            UserMp[u_h] = User, UserDb.Modify(u_h, User);
             if (order.Status == success)return ret_type{std::to_string(tik.Cost * TicketNum)};
             else return ret_type{"queue"};
         }
@@ -610,12 +611,6 @@ namespace hnyls2002 {
 
         ret_type exit(const CmdType &arg) {
             Logged.clear();
-            BasicTrainDb.Clear();
-            for (auto it: BasicTrainMp)
-                BasicTrainDb.Insert(it.first, it.second);
-            UserDb.Clear();
-            for (auto it: UserMp)
-                UserDb.Insert(it.first, it.second);
             return ret_type{"bye"};
         }
 
