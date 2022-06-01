@@ -114,7 +114,10 @@ namespace ds {
                     dirty[hash_index] = true;
                     information[hash_index] = new_info;
                 } else {
+                    //这里要判一下是不是存在，如果这个元素本身不存在，你把它存到缓存里面会有问题
+                    if (!tree->Modify(key, new_info))return false;
                     if (dirty[hash_index])tree->Modify(index[hash_index], information[hash_index]);
+                    dirty[hash_index] = false;
                     index[hash_index] = key;
                     information[hash_index] = new_info;
                 }
