@@ -5,8 +5,8 @@ void test_logic() {
 /*
     system("rm index*");
     system("rm record*");
-    freopen("./testdata/normal/basic_5/1.in", "r", stdin);
-    freopen("./testdata/normal/basic_5/my.out", "w", stdout);
+    freopen("./testdata/normal/basic_1/1.in", "r", stdin);
+    freopen("./testdata/normal/basic_1/my.out", "w", stdout);
 */
     std::ios::sync_with_stdio(false);
     clock_t sts = clock();
@@ -14,7 +14,6 @@ void test_logic() {
     //sys.GetSize();
     std::string str;
     while (getline(std::cin, str)) {
-        //std::cerr << "Command : " << str << std::endl;
         auto res = sys.Opt(str);
         //std::cout << str.substr(0, 6) << std::endl;
         for (auto it: res) {
