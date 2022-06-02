@@ -37,9 +37,9 @@ namespace hnyls2002 {
         void GetSize() {
             UserDb.tree->GetSizeInfo();
             BasicTrainDb.tree->GetSizeInfo();
-            TrainDb.GetSizeInfo();
+            TrainDb.tree->GetSizeInfo();
             StDb.GetSizeInfo();
-            DayTrainDb.GetSizeInfo();
+            DayTrainDb.tree->GetSizeInfo();
             OrderDb.GetSizeInfo();
             PendDb.GetSizeInfo();
         }
@@ -63,7 +63,7 @@ namespace hnyls2002 {
         };
 
         // UserName
-        ds::CacheMap<size_t, UserInfo, 10000, 339, 29> UserDb;
+        ds::CacheMap<size_t, UserInfo, 9973, 339, 29> UserDb;
 
         // UserName
         sjtu::map<size_t, bool> Logged;
@@ -76,7 +76,7 @@ namespace hnyls2002 {
         };
 
         // UserName
-        ds::CacheMap<size_t, BasicTrainInfo, 10000, 339, 127> BasicTrainDb;// 外存对象
+        ds::CacheMap<size_t, BasicTrainInfo, 49999, 339, 127> BasicTrainDb;// 外存对象
 
         struct TrainInfo { // 列车的数据量最大的信息，只在query_train的时候会用到。
             fstr<StNameMax> StName[StNumMax];
@@ -85,7 +85,7 @@ namespace hnyls2002 {
         };
 
         //TrainID
-        ds::BPlusTree<size_t, TrainInfo, 339, 2> TrainDb;
+        ds::CacheMap<size_t, TrainInfo, 97, 339, 2> TrainDb;
 
         struct StInfo {// 车站的信息，不同列车的相同车站都是不同的车站，维护了不同的信息。
             int Rank{}, Price{};// Rank是第几个车站，为了能够查询剩余票数,Price对应了Prices[]
@@ -112,7 +112,14 @@ namespace hnyls2002 {
         };
 
         //TrainID
-        ds::BPlusTree<std::pair<size_t, Date>, DayTrainInfo, 208, 9> DayTrainDb;
+        class DayTrainHash {
+        public:
+            size_t operator()(const std::pair<size_t, Date> &x) {
+                return x.first + x.second.num_d;
+            }
+        };
+
+        ds::CacheMap<std::pair<size_t, Date>, DayTrainInfo, 9973, 208, 9, DayTrainHash> DayTrainDb;
 
         //reference to stackoverflow
         //https://stackoverflow.com/questions/26331628/reference-to-non-static-member-function-must-be-called
