@@ -14,12 +14,15 @@ void test_logic() {
     //sys.GetSize();
     std::string str;
     while (getline(std::cin, str)) {
+        sys.Opt(str);
+/*
         auto res = sys.Opt(str);
         //std::cout << str.substr(0, 6) << std::endl;
         for (auto it: res) {
             std::cout << it << std::endl;
             //std::cerr << it << std::endl;
         }
+*/
     }
     clock_t end = clock();
     std::cerr << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
