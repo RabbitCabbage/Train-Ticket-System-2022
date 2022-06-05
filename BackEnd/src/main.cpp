@@ -12,6 +12,7 @@ int main() {
     clock_t sts = clock();
     hnyls2002::System sys;
     //sys.GetSize();
+    sys.GetCachedSize();
     std::string str;
     while (getline(std::cin, str))sys.Opt(str);
     clock_t end = clock();
