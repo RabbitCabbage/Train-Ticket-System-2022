@@ -25,6 +25,7 @@ namespace ds {
 
         CacheMap(const char *index_file_name,
                  const char *record_file_name) {
+            std::cerr << max_size << " " << sizeof(index)/1e6 << std::endl;
             tree = new ds::BPlusTree<Key, Info, max_key_num, max_rcd_num, KeyCompare>(index_file_name,
                                                                                       record_file_name);
             memset(valid, false, sizeof(valid));
