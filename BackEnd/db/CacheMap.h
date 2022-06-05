@@ -17,13 +17,16 @@ namespace ds {
         struct node {
             int dirty_index = -1;//这个dirty位是哪一个
             node *nxt = nullptr;//记录的是，下一个dirty位是哪一个
-            node(int ind = -1, node *n = nullptr) {
+            node *bef = nullptr;
+
+            node(int ind = -1, node *n = nullptr, node *b = nullptr) {
                 dirty_index = ind, nxt = n;
             }
         };
 
         bool valid[max_size];
         bool dirty[max_size];
+        node *prev[max_size];
         node *head = nullptr, *rear = nullptr;//维护一个串起所有dirty的链表，每增加一个dirty就在链表尾部加一个节点
         Key index[max_size];//记下这时的这个hash所对应的是什么键值
         Info information[max_size];
@@ -72,12 +75,13 @@ namespace ds {
                 //然后把这个值放到缓存里面,这个值肯定是先前不存在的，不用检查碰撞了
                 if (dirty[hash_index]) {
                     tree->Modify(index[hash_index], information[hash_index]);
-                    node *ptr = head;
-                    for (; ptr->nxt != nullptr; ptr = ptr->nxt) {
-                        if (ptr->nxt->dirty_index == hash_index)break;
-                    }
+                    node *ptr = prev[hash_index];
                     node *del = ptr->nxt;
                     ptr->nxt = del->nxt;
+                    if (ptr->nxt) {
+                        ptr->nxt->bef = ptr;
+                        prev[ptr->nxt->dirty_index] = ptr;
+                    }
                     if (rear == del)rear = ptr;
                     delete del;
                     dirty[hash_index] = false;
@@ -98,12 +102,13 @@ namespace ds {
                 if (valid[hash_index] && !cmp.operator()(key, index[hash_index]) &&
                     !cmp.operator()(index[hash_index], key)) {
                     if (dirty[hash_index]) {
-                        node *ptr = head;
-                        for (; ptr->nxt != nullptr; ptr = ptr->nxt) {
-                            if (ptr->nxt->dirty_index == hash_index)break;
-                        }
+                        node *ptr = prev[hash_index];
                         node *del = ptr->nxt;
                         ptr->nxt = del->nxt;
+                        if (ptr->nxt) {
+                            ptr->nxt->bef = ptr;
+                            prev[ptr->nxt->dirty_index] = ptr;
+                        }
                         if (rear == del)rear = ptr;
                         delete del;
                         dirty[hash_index] = false;
@@ -129,15 +134,16 @@ namespace ds {
                     if (!res.first)return res;
                     if (dirty[hash_index]) {
                         tree->Modify(index[hash_index], information[hash_index]);
-                        dirty[hash_index] = false;
-                        node *ptr = head;
-                        for (; ptr->nxt != nullptr; ptr = ptr->nxt) {
-                            if (ptr->nxt->dirty_index == hash_index)break;
-                        }
+                        node *ptr = prev[hash_index];
                         node *del = ptr->nxt;
                         ptr->nxt = del->nxt;
+                        if (ptr->nxt) {
+                            ptr->nxt->bef = ptr;
+                            prev[ptr->nxt->dirty_index] = ptr;
+                        }
                         if (rear == del)rear = ptr;
                         delete del;
+                        dirty[hash_index] = false;
                         index[hash_index] = res.second.first;
                         information[hash_index] = res.second.second;
                         return res;
@@ -166,7 +172,8 @@ namespace ds {
             if (valid[hash_index]) {
                 if (!cmp.operator()(key, index[hash_index]) && !cmp.operator()(index[hash_index], key)) {
                     dirty[hash_index] = true;
-                    rear->nxt = new node(hash_index, nullptr);
+                    rear->nxt = new node(hash_index, nullptr, rear);
+                    prev[hash_index] = rear;
                     rear = rear->nxt;
                     information[hash_index] = new_info;
                 } else {
@@ -174,12 +181,13 @@ namespace ds {
                     if (!tree->Modify(key, new_info))return false;
                     if (dirty[hash_index]) {
                         tree->Modify(index[hash_index], information[hash_index]);
-                        node *ptr = head;
-                        for (; ptr->nxt != nullptr; ptr = ptr->nxt) {
-                            if (ptr->nxt->dirty_index == hash_index)break;
-                        }
+                        node *ptr = prev[hash_index];
                         node *del = ptr->nxt;
                         ptr->nxt = del->nxt;
+                        if (ptr->nxt) {
+                            ptr->nxt->bef = ptr;
+                            prev[ptr->nxt->dirty_index] = ptr;
+                        }
                         if (rear == del)rear = ptr;
                         delete del;
                         dirty[hash_index] = false;
