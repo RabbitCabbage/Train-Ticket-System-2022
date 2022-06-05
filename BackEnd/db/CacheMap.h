@@ -62,6 +62,7 @@ namespace ds {
                 tree->Modify(index[ptr->dirty_index], information[ptr->dirty_index]);
             }
             memset(dirty, false, sizeof(dirty));
+            memset(valid,false,sizeof(valid));
             head->nxt = nullptr;
             rear = head;
         }
@@ -207,6 +208,8 @@ namespace ds {
 
         void Clear() {
             tree->Clear();
+            memset(valid, false, sizeof(valid));
+            memset(dirty, false, sizeof(false));
         }
 
 //返回现在总共有多少条记录
