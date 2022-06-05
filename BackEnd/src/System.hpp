@@ -38,10 +38,20 @@ namespace hnyls2002 {
             UserDb.tree->GetSizeInfo();
             BasicTrainDb.tree->GetSizeInfo();
             TrainDb.tree->GetSizeInfo();
-            StDb.GetSizeInfo();
+            StDb.tree->GetSizeInfo();
             DayTrainDb.tree->GetSizeInfo();
-            OrderDb.GetSizeInfo();
-            PendDb.GetSizeInfo();
+            OrderDb.tree->GetSizeInfo();
+            PendDb.tree->GetSizeInfo();
+        }
+
+        static void GetCachedSize() {
+            std::cerr << "UserDb : " << sizeof(UserDb) / 1e6 << std::endl;
+            std::cerr << "BasicTrainDb : " << sizeof(BasicTrainDb) / 1e6 << std::endl;
+            std::cerr << "TrainDb : " << sizeof(TrainDb) / 1e6 << std::endl;
+            std::cerr << "StDb : " << sizeof(StDb) / 1e6 << std::endl;
+            std::cerr << "DayTrainDb : " << sizeof(DayTrainDb) / 1e6 << std::endl;
+            std::cerr << "OrderDb : " << sizeof(OrderDb) / 1e6 << std::endl;
+            std::cerr << "PendDb : " << sizeof(PendDb) / 1e6 << std::endl;
         }
 
     private:
@@ -85,7 +95,7 @@ namespace hnyls2002 {
         };
 
         //TrainID
-        ds::CacheMap<size_t, TrainInfo, 97, 339, 2> TrainDb;
+        ds::CacheMap<size_t, TrainInfo, 997, 339, 2> TrainDb;
 
         struct StInfo {// 车站的信息，不同列车的相同车站都是不同的车站，维护了不同的信息。
             int Rank{}, Price{};// Rank是第几个车站，为了能够查询剩余票数,Price对应了Prices[]
@@ -93,8 +103,15 @@ namespace hnyls2002 {
             Time Arriving, Leaving;// 对应了TimeTable[]
         };
 
+        class PairHash {
+        public:
+            size_t operator()(const std::pair<size_t, size_t> &x) {
+                return x.first + x.second;
+            }
+        };
+
         //StName
-        ds::BPlusTree<std::pair<size_t, size_t>, StInfo, 208, 68> StDb;
+        ds::CacheMap<std::pair<size_t, size_t>, StInfo, 49999, 208, 68, PairHash> StDb;
 
         struct DayTrainInfo {
             int RemainSeats[StNumMax]{};// 第1项为SeatNum，以此类推
@@ -326,21 +343,23 @@ namespace hnyls2002 {
             if (!DayTrainDb.Find({i_h, arg['d']}).first)is_in = false;
             if (is_in) DayTrain = DayTrainDb[{i_h, arg['d']}];
 
-            std::cout << arg['i'] << ' ' << BasicTrain.Type << std::endl;
+            std::string ret;
+            ret += arg['i'] + ' ' + BasicTrain.Type + '\n';
             //int IntervalDays = GetDate(Train, 1, arg['d']);
             int IntervalDays = Day - Date(Train.TimeTable[1].second);
             for (int i = 1; i <= BasicTrain.StNum; ++i) {
-                std::cout << Train.StName[i].to_string() << ' ';
-                std::cout << (i == 1 ? "xx-xx xx:xx" : Train.TimeTable[i].first.DayStep(IntervalDays).to_string());
-                std::cout << " -> ";
-                std::cout << (i == BasicTrain.StNum ? "xx-xx xx:xx" : Train.TimeTable[i].second.DayStep(
-                        IntervalDays).to_string());
-                std::cout << " " + std::to_string(Train.Prices[i]) + " ";
+                ret += Train.StName[i].to_string() + ' ';
+                ret += (i == 1 ? "xx-xx xx:xx" : Train.TimeTable[i].first.DayStep(IntervalDays).to_string()) + " -> ";
+                ret += i == BasicTrain.StNum ? "xx-xx xx:xx" : Train.TimeTable[i].second.DayStep(
+                        IntervalDays).to_string();
+                ret += ' ' + std::to_string(Train.Prices[i]) + ' ';
                 // 这里查询的是从这一站到下一站的票数
-                if (i == BasicTrain.StNum)std::cout << 'x' << std::endl;
-                else if (is_in)std::cout << DayTrain.RemainSeats[i + 1] << std::endl;
-                else std::cout << BasicTrain.SeatNum << std::endl;
+                if (i == BasicTrain.StNum)ret += 'x';
+                else if (is_in) ret += std::to_string(DayTrain.RemainSeats[i + 1]);
+                else ret += std::to_string(BasicTrain.SeatNum);
+                ret += '\n';
             }
+            std::cout << ret;
         }
 
         struct TicketType {
@@ -390,8 +409,8 @@ namespace hnyls2002 {
 
         void query_ticket(const CmdType &arg) {
             size_t s_h = Hash(arg['s']), t_h = Hash(arg['t']);
-            auto it_s = StDb.FindBigger({s_h, 0});
-            auto it_t = StDb.FindBigger({t_h, 0});
+            auto it_s = StDb.tree->FindBigger({s_h, 0});
+            auto it_t = StDb.tree->FindBigger({t_h, 0});
             sjtu::vector<StInfo> lis_s, lis_t;
             for (; !it_s.AtEnd() && (*it_s).first.first == s_h; ++it_s)
                 lis_s.push_back((*it_s).second);
@@ -413,9 +432,11 @@ namespace hnyls2002 {
 
             auto cmp = arg['p'] == "cost" ? &System::cmp_ticket_cost : &System::cmp_ticket_time;
             sort(tickets.begin(), tickets.end(), cmp);
-            std::cout << tickets.size() << std::endl;
+            std::string ret;
+            ret += std::to_string(tickets.size()) + '\n';
             for (auto tik: tickets)
-                std::cout << tik.to_string(arg['s'], arg['t']) << std::endl;
+                ret += tik.to_string(arg['s'], arg['t']) + '\n';
+            std::cout << ret;
         }
 
         struct TransType {
@@ -443,8 +464,8 @@ namespace hnyls2002 {
 
         void query_transfer(const CmdType &arg) {
             size_t s_h = Hash(arg['s']), t_h = Hash(arg['t']);
-            auto it_s = StDb.FindBigger({s_h, 0});
-            auto it_t = StDb.FindBigger({t_h, 0});
+            auto it_s = StDb.tree->FindBigger({s_h, 0});
+            auto it_t = StDb.tree->FindBigger({t_h, 0});
 
             sjtu::vector<StInfo> lis_s, lis_t;
 
@@ -515,7 +536,14 @@ namespace hnyls2002 {
             int pl{}, pr{}, TimeStamp{};
         };
 
-        ds::BPlusTree<std::pair<size_t, int>, Order, 203, 26> OrderDb;
+        class PIHash {
+        public:
+            size_t operator()(const std::pair<size_t, int> &x) {
+                return x.first + x.second;
+            }
+        };
+
+        ds::CacheMap<std::pair<size_t, int>, Order, 29999, 203, 26, PIHash> OrderDb;
         //bptree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;// 第二维存这是第几个订单
 
         struct PendType {
@@ -523,7 +551,14 @@ namespace hnyls2002 {
             int TicketNum, pl, pr, id;// 存了车站顺序和订单的编号
         };
 
-        ds::BPlusTree<std::pair<std::pair<size_t, Date>, int>, PendType, 145, 60> PendDb;
+        class PDHash {
+        public:
+            size_t operator()(const std::pair<std::pair<size_t, Date>, int> &x) {
+                return size_t(x.first.first + x.first.second.num_d) * x.second;
+            }
+        };
+
+        ds::CacheMap<std::pair<std::pair<size_t, Date>, int>, PendType, 49999, 145, 60, PDHash> PendDb;
         //bptree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType> PendDb;// 第二维存[-时间戳] 购票的时间戳
 
         void buy_ticket(const CmdType &arg) {
@@ -613,13 +648,15 @@ namespace hnyls2002 {
                 std::cout << -1 << std::endl;
                 return;
             }
-            auto it = OrderDb.FindBigger({u_h, -0x3f3f3f3f});
-            std::cout << UserDb[u_h].OrderNum << std::endl;
+            OrderDb.Flush();
+            auto it = OrderDb.tree->FindBigger({u_h, -0x3f3f3f3f});
+            std::string ret;
+            ret += std::to_string(UserDb[u_h].OrderNum) + '\n';
             for (; !it.AtEnd() && (*it).first.first == u_h; ++it) {
-                std::cout << StatusToString[(*it).second.Status] << ' ';
-                std::cout << (*it).second.tik.to_string((*it).second.From.to_string(), (*it).second.To.to_string());
-                std::cout << std::endl;
+                ret += StatusToString[(*it).second.Status] + ' ';
+                ret += (*it).second.tik.to_string((*it).second.From.to_string(), (*it).second.To.to_string()) + '\n';
             }
+            std::cout << ret;
         }
 
         void refund_ticket(const CmdType &arg) {
@@ -643,7 +680,7 @@ namespace hnyls2002 {
             if (order.Status == pending)flag = false;
             order.Status = refunded;
             //OrderDb[{arg['u'], -id}] = order;
-            OrderDb.Modify({u_h, -id}, order);
+            auto res = OrderDb.Modify({u_h, -id}, order);
 
             std::pair<size_t, Date> info = {Hash(order.tik.TrainID.to_string()), order.Day};
             if (!flag) {// 为假说明要把这个退订的候补在PendDb中删除
@@ -653,7 +690,7 @@ namespace hnyls2002 {
                 DayTrain.Modify(order.pl, order.pr, -order.tik.RemainSeat);
 
                 // 处理候补的订单
-                auto it = PendDb.FindBigger({info, 0});
+                auto it = PendDb.tree->FindBigger({info, 0});
                 for (; !it.AtEnd() && (*it).first.first == info;) {
                     int RemainTickets = DayTrain.Get_Remain((*it).second.pl, (*it).second.pr);
                     if (RemainTickets >= (*it).second.TicketNum) {// 候补成功
