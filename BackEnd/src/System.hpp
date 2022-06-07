@@ -38,10 +38,20 @@ namespace hnyls2002 {
             UserDb.tree->GetSizeInfo();
             BasicTrainDb.tree->GetSizeInfo();
             TrainDb.tree->GetSizeInfo();
-            StDb.GetSizeInfo();
+            StDb.tree->GetSizeInfo();
             DayTrainDb.tree->GetSizeInfo();
-            OrderDb.GetSizeInfo();
-            PendDb.GetSizeInfo();
+            OrderDb.tree->GetSizeInfo();
+            PendDb.tree->GetSizeInfo();
+        }
+
+        static void GetCachedSize() {
+            std::cerr << "UserDb : " << sizeof(UserDb) / 1e6 << std::endl;
+            std::cerr << "BasicTrainDb : " << sizeof(BasicTrainDb) / 1e6 << std::endl;
+            std::cerr << "TrainDb : " << sizeof(TrainDb) / 1e6 << std::endl;
+            std::cerr << "StDb : " << sizeof(StDb) / 1e6 << std::endl;
+            std::cerr << "DayTrainDb : " << sizeof(DayTrainDb) / 1e6 << std::endl;
+            std::cerr << "OrderDb : " << sizeof(OrderDb) / 1e6 << std::endl;
+            std::cerr << "PendDb : " << sizeof(PendDb) / 1e6 << std::endl;
         }
 
     private:
@@ -85,7 +95,7 @@ namespace hnyls2002 {
         };
 
         //TrainID
-        ds::CacheMap<size_t, TrainInfo, 97, 339, 2> TrainDb;
+        ds::CacheMap<size_t, TrainInfo, 997, 339, 2> TrainDb;
 
         struct StInfo {// 车站的信息，不同列车的相同车站都是不同的车站，维护了不同的信息。
             int Rank{}, Price{};// Rank是第几个车站，为了能够查询剩余票数,Price对应了Prices[]
@@ -93,8 +103,15 @@ namespace hnyls2002 {
             Time Arriving, Leaving;// 对应了TimeTable[]
         };
 
+        class PairHash {
+        public:
+            size_t operator()(const std::pair<size_t, size_t> &x) {
+                return x.first + x.second;
+            }
+        };
+
         //StName
-        ds::BPlusTree<std::pair<size_t, size_t>, StInfo, 208, 68> StDb;
+        ds::CacheMap<std::pair<size_t, size_t>, StInfo, 49999, 208, 68, PairHash> StDb;
 
         struct DayTrainInfo {
             int RemainSeats[StNumMax]{};// 第1项为SeatNum，以此类推
@@ -123,53 +140,61 @@ namespace hnyls2002 {
 
         //reference to stackoverflow
         //https://stackoverflow.com/questions/26331628/reference-to-non-static-member-function-must-be-called
-        ret_type (System::* func[17])(const CmdType &) ={&System::add_user, &System::login, &System::logout,
-                                                         &System::query_profile, &System::modify_profile,
-                                                         &System::add_train, &System::delete_train,
-                                                         &System::release_train, &System::query_train,
-                                                         &System::query_ticket, &System::query_transfer,
-                                                         &System::buy_ticket, &System::query_order,
-                                                         &System::refund_ticket, &System::rollback,
-                                                         &System::clean, &System::exit};
+        void (System::* func[17])(const CmdType &) ={&System::add_user, &System::login, &System::logout,
+                                                     &System::query_profile, &System::modify_profile,
+                                                     &System::add_train, &System::delete_train,
+                                                     &System::release_train, &System::query_train,
+                                                     &System::query_ticket, &System::query_transfer,
+                                                     &System::buy_ticket, &System::query_order,
+                                                     &System::refund_ticket, &System::rollback,
+                                                     &System::clean, &System::exit};
 
     public:
 
-        ret_type Opt(const std::string &str) {
+        void Opt(const std::string &str) {
             CmdType a = Parser(str);
-            return (this->*func[a.FuncID])(a);
+            (this->*func[a.FuncID])(a);
         }
 
     private:
 
-        ret_type add_user(const CmdType &arg) {
+        void add_user(const CmdType &arg) {
             size_t u_h = Hash(arg['u']), c_h = Hash(arg['c']);
             if (UserDb.GetSize()) { // 不是第一次创建用户时
-                if (Logged.find(c_h) == Logged.end())return ret_value(-1);// 没有登录
-                if (UserDb[c_h].privilege.to_int() <= std::stoi(arg['g']))return ret_value(-1);// 权限不满足要求
-                if (UserDb.Find(u_h).first)return ret_value(-1);// 已经存在用户u
+                // 没有登录 || 权限不满足要求 || 已经存在用户u
+                if (Logged.find(c_h) == Logged.end() || UserDb[c_h].privilege.to_int() <= std::stoi(arg['g']) ||
+                    UserDb.Find(u_h).first) {
+                    std::cout << -1 << std::endl;
+                    return;
+                }//
             }
             UserInfo User;
             User.UserName = arg['u'], User.Passwd = arg['p'], User.Name = arg['n'];
             User.mailAdd = arg['m'], User.privilege = arg['g'];
             User.OrderNum = 0;
             UserDb.Insert(u_h, User);
-            return ret_value(0);
+            std::cout << 0 << std::endl;
         }
 
-        ret_type login(const CmdType &arg) {
+        void login(const CmdType &arg) {
             size_t u_h = Hash(arg['u']);
-            if (!UserDb.Find(u_h).first)return ret_value(-1);// 用户不存在
-            if (Logged.find(u_h) != Logged.end())return ret_value(-1);// 用户已经登录
-            if (UserDb[u_h].Passwd != arg['p'])return ret_value(-1);// 密码不对
+            // 用户不存在 || 用户已经登录 || 密码不对
+            if (!UserDb.Find(u_h).first || Logged.find(u_h) != Logged.end() || UserDb[u_h].Passwd != arg['p']) {
+                std::cout << -1 << std::endl;
+                return;
+            }
             Logged[u_h] = true;
-            return ret_value(0);
+            std::cout << 0 << std::endl;
         }
 
-        ret_type logout(const CmdType &arg) {
+        void logout(const CmdType &arg) {
             size_t u_h = Hash(arg['u']);
-            if (Logged.find(u_h) == Logged.end())return ret_value(-1);// 没有登录
+            if (Logged.find(u_h) == Logged.end()) {
+                std::cout << -1 << std::endl;
+                return;
+            }
             Logged.erase(Logged.find(u_h));
-            return ret_value(0);
+            std::cout << 0 << std::endl;
         }
 
         bool JudgeUserQM(const CmdType &arg) {// 用户c要查询（修改）用户u的时候
@@ -181,29 +206,41 @@ namespace hnyls2002 {
             return true;
         }
 
-        ret_type query_profile(const CmdType &arg) {
+        void query_profile(const CmdType &arg) {
             size_t u_h = Hash(arg['u']);
-            if (!JudgeUserQM(arg))return ret_value(-1);
+            if (!JudgeUserQM(arg)) {
+                std::cout << -1 << std::endl;
+                return;
+            }
             UserInfo User = UserDb[u_h];
-            return ret_type{User.to_string()};
+            std::cout << User.to_string() << std::endl;
         }
 
-        ret_type modify_profile(const CmdType &arg) {
+        void modify_profile(const CmdType &arg) {
             size_t u_h = Hash(arg['u']), c_h = Hash(arg['c']);
-            if (!JudgeUserQM(arg))return ret_value(-1);
-            if (!arg['g'].empty() && UserDb[c_h].privilege.to_int() <= std::stoi(arg['g']))return ret_value(-1);
+            if (!JudgeUserQM(arg)) {
+                std::cout << -1 << std::endl;
+                return;
+            }
+            if (!arg['g'].empty() && UserDb[c_h].privilege.to_int() <= std::stoi(arg['g'])) {
+                std::cout << -1 << std::endl;
+                return;
+            }
             UserInfo User = UserDb[u_h];// 最好不用引用传递，引用似乎不能在外存上实现
             if (!arg['p'].empty())User.Passwd = arg['p'];
             if (!arg['n'].empty())User.Name = arg['n'];
             if (!arg['m'].empty())User.mailAdd = arg['m'];
             if (!arg['g'].empty())User.privilege = arg['g'];
             UserDb.Modify(u_h, User);
-            return ret_type{User.to_string()};
+            std::cout << User.to_string() << std::endl;
         }
 
-        ret_type add_train(const CmdType &arg) {
+        void add_train(const CmdType &arg) {
             size_t i_h = Hash(arg['i']);
-            if (BasicTrainDb.Find(i_h).first)return ret_value(-1);// 已经存在，添加失败
+            if (BasicTrainDb.Find(i_h).first) {// 已经存在，添加失败
+                std::cout << -1 << std::endl;
+                return;
+            }
             BasicTrainInfo BasicTrain;
             TrainInfo Train;
             BasicTrain.SeatNum = std::stoi(arg['m']);
@@ -243,24 +280,32 @@ namespace hnyls2002 {
             BasicTrainDb.Insert(i_h, BasicTrain);
             TrainDb.Insert(i_h, Train);
 
-            return ret_value(0);
+            std::cout << 0 << std::endl;
         }
 
-        ret_type delete_train(const CmdType &arg) {
+        void delete_train(const CmdType &arg) {
             size_t i_h = Hash(arg['i']);
-            if (!BasicTrainDb.Find(i_h).first)return ret_value(-1);// 没有这个车次
-            if (BasicTrainDb[i_h].is_released)return ret_value(-1);// 已经发布了
+            if (!BasicTrainDb.Find(i_h).first || BasicTrainDb[i_h].is_released) {// 没有这个车次 || 已经发布了
+                std::cout << -1 << std::endl;
+                return;
+            }
             // 所有对于BasicTrain的操作，只操作Mp。
             BasicTrainDb.Remove(i_h);
             TrainDb.Remove(i_h);
-            return ret_value(0);
+            std::cout << 0 << std::endl;
         }
 
-        ret_type release_train(const CmdType &arg) {// 先不把DayTrain加进去，有购票的时候再加？
+        void release_train(const CmdType &arg) {// 先不把DayTrain加进去，有购票的时候再加？
             size_t i_h = Hash(arg['i']);
-            if (!BasicTrainDb.Find(i_h).first)return ret_value(-1);// 没有找到这辆车
+            if (!BasicTrainDb.Find(i_h).first) {// 没有找到这辆车
+                std::cout << -1 << std::endl;
+                return;
+            }
             auto BasicTrain = BasicTrainDb[i_h];
-            if (BasicTrain.is_released)return ret_value(-1);// 已经发布了
+            if (BasicTrain.is_released) {// 已经发布了
+                std::cout << -1 << std::endl;
+                return;
+            }
             BasicTrain.is_released = true;
             BasicTrainDb.Modify(i_h, BasicTrain);
 
@@ -275,41 +320,46 @@ namespace hnyls2002 {
                 St.TrainID = arg['i'];
                 StDb.Insert({Hash(Train.StName[i].to_string()), Hash(arg['i'])}, St);
             }
-            return ret_value(0);
+            std::cout << 0 << std::endl;
         }
 
-        ret_type query_train(const CmdType &arg) {
+        void query_train(const CmdType &arg) {
             size_t i_h = Hash(arg['i']);
-            if (!BasicTrainDb.Find(i_h).first)return ret_value(-1);// 没有找到这辆车
+            if (!BasicTrainDb.Find(i_h).first) {// 没有找到这辆车
+                std::cout << -1 << std::endl;
+                return;
+            }
             auto BasicTrain = BasicTrainDb[i_h];
             auto Train = TrainDb[i_h];
 
             Date Day = arg['d'];
-            if (Day < BasicTrain.SaleDate.first || BasicTrain.SaleDate.second < Day)return ret_value(-1);// 这段时间不发车
+            if (Day < BasicTrain.SaleDate.first || BasicTrain.SaleDate.second < Day) {// 这段时间不发车
+                std::cout << -1 << std::endl;
+                return;
+            }
             // 注意格式
             bool is_in = true;
             DayTrainInfo DayTrain;
             if (!DayTrainDb.Find({i_h, arg['d']}).first)is_in = false;
             if (is_in) DayTrain = DayTrainDb[{i_h, arg['d']}];
 
-            ret_type ret;
-            ret.push_back(arg['i'] + ' ' + std::string(1, BasicTrain.Type));
+            std::string ret;
+            ret += arg['i'] + ' ' + BasicTrain.Type + '\n';
             //int IntervalDays = GetDate(Train, 1, arg['d']);
             int IntervalDays = Day - Date(Train.TimeTable[1].second);
             for (int i = 1; i <= BasicTrain.StNum; ++i) {
-                std::string tmp;
-                tmp += Train.StName[i].to_string() + " ";
-                tmp += (i == 1 ? "xx-xx xx:xx" : Train.TimeTable[i].first.DayStep(IntervalDays).to_string()) + " -> ";
-                tmp += i == BasicTrain.StNum ? "xx-xx xx:xx" : Train.TimeTable[i].second.DayStep(
+                ret += Train.StName[i].to_string() + ' ';
+                ret += (i == 1 ? "xx-xx xx:xx" : Train.TimeTable[i].first.DayStep(IntervalDays).to_string()) + " -> ";
+                ret += i == BasicTrain.StNum ? "xx-xx xx:xx" : Train.TimeTable[i].second.DayStep(
                         IntervalDays).to_string();
-                tmp += " " + std::to_string(Train.Prices[i]) + " ";
+                ret += ' ' + std::to_string(Train.Prices[i]) + ' ';
                 // 这里查询的是从这一站到下一站的票数
-                if (i == BasicTrain.StNum)tmp += "x";
-                else if (is_in)tmp += std::to_string(DayTrain.RemainSeats[i + 1]);
-                else tmp += std::to_string(BasicTrain.SeatNum);
-                ret.push_back(tmp);
+                if (i == BasicTrain.StNum)ret += 'x';
+                else if (is_in) ret += std::to_string(DayTrain.RemainSeats[i + 1]);
+                else ret += std::to_string(BasicTrain.SeatNum);
+                ret += '\n';
             }
-            return ret;
+            std::cout << ret;
         }
 
         struct TicketType {
@@ -357,10 +407,10 @@ namespace hnyls2002 {
             return {0, ret};
         }
 
-        ret_type query_ticket(const CmdType &arg) {
+        void query_ticket(const CmdType &arg) {
             size_t s_h = Hash(arg['s']), t_h = Hash(arg['t']);
-            auto it_s = StDb.FindBigger({s_h, 0});
-            auto it_t = StDb.FindBigger({t_h, 0});
+            auto it_s = StDb.tree->FindBigger({s_h, 0});
+            auto it_t = StDb.tree->FindBigger({t_h, 0});
             sjtu::vector<StInfo> lis_s, lis_t;
             for (; !it_s.AtEnd() && (*it_s).first.first == s_h; ++it_s)
                 lis_s.push_back((*it_s).second);
@@ -382,10 +432,11 @@ namespace hnyls2002 {
 
             auto cmp = arg['p'] == "cost" ? &System::cmp_ticket_cost : &System::cmp_ticket_time;
             sort(tickets.begin(), tickets.end(), cmp);
-            ret_type ret;
-            ret.push_back(std::to_string(tickets.size()));
-            for (auto tik: tickets) ret.push_back(tik.to_string(arg['s'], arg['t']));
-            return ret;
+            std::string ret;
+            ret += std::to_string(tickets.size()) + '\n';
+            for (auto tik: tickets)
+                ret += tik.to_string(arg['s'], arg['t']) + '\n';
+            std::cout << ret;
         }
 
         struct TransType {
@@ -411,10 +462,10 @@ namespace hnyls2002 {
             return t1.tik2.TrainID < t2.tik2.TrainID;
         }
 
-        ret_type query_transfer(const CmdType &arg) {
+        void query_transfer(const CmdType &arg) {
             size_t s_h = Hash(arg['s']), t_h = Hash(arg['t']);
-            auto it_s = StDb.FindBigger({s_h, 0});
-            auto it_t = StDb.FindBigger({t_h, 0});
+            auto it_s = StDb.tree->FindBigger({s_h, 0});
+            auto it_t = StDb.tree->FindBigger({t_h, 0});
 
             sjtu::vector<StInfo> lis_s, lis_t;
 
@@ -463,11 +514,12 @@ namespace hnyls2002 {
                     }
                 }
             }
-            if (!flag)return ret_value(0);
-            ret_type ret;
-            ret.push_back(tik.tik1.to_string(arg['s'], tik.trans));
-            ret.push_back(tik.tik2.to_string(tik.trans, arg['t']));
-            return ret;
+            if (!flag) {
+                std::cout << 0 << std::endl;
+                return;
+            }
+            std::cout << tik.tik1.to_string(arg['s'], tik.trans) << std::endl;
+            std::cout << tik.tik2.to_string(tik.trans, arg['t']) << std::endl;
         }
 
         enum StatusType {
@@ -484,7 +536,14 @@ namespace hnyls2002 {
             int pl{}, pr{}, TimeStamp{};
         };
 
-        ds::BPlusTree<std::pair<size_t, int>, Order, 203, 26> OrderDb;
+        class PIHash {
+        public:
+            size_t operator()(const std::pair<size_t, int> &x) {
+                return x.first + x.second;
+            }
+        };
+
+        ds::CacheMap<std::pair<size_t, int>, Order, 29999, 203, 26, PIHash> OrderDb;
         //bptree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;// 第二维存这是第几个订单
 
         struct PendType {
@@ -492,27 +551,54 @@ namespace hnyls2002 {
             int TicketNum, pl, pr, id;// 存了车站顺序和订单的编号
         };
 
-        ds::BPlusTree<std::pair<std::pair<size_t, Date>, int>, PendType, 145, 60> PendDb;
+        class PDHash {
+        public:
+            size_t operator()(const std::pair<std::pair<size_t, Date>, int> &x) {
+                return size_t(x.first.first + x.first.second.num_d) * x.second;
+            }
+        };
+
+        ds::CacheMap<std::pair<std::pair<size_t, Date>, int>, PendType, 49999, 145, 60, PDHash> PendDb;
         //bptree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType> PendDb;// 第二维存[-时间戳] 购票的时间戳
 
-        ret_type buy_ticket(const CmdType &arg) {
+        void buy_ticket(const CmdType &arg) {
             size_t f_h = Hash(arg['f']), t_h = Hash(arg['t']), i_h = Hash(arg['i']), u_h = Hash(arg['u']);
-            if (Logged.find(u_h) == Logged.end())return ret_value(-1);// 没有登录
-            if (!BasicTrainDb.Find(i_h).first)return ret_value(-1);// 没有这列车
+            if (Logged.find(u_h) == Logged.end()) {// 没有登录
+                std::cout << -1 << std::endl;
+                return;
+            }
+            if (!BasicTrainDb.Find(i_h).first) {// 没有这列车
+                std::cout << -1 << std::endl;
+                return;
+            }
             auto BasicTrain = BasicTrainDb[i_h];
-            if (!BasicTrain.is_released)return ret_value(-1);// 没有被release
-            if (std::stoi(arg['n']) > BasicTrain.SeatNum)return ret_value(-1);// 当你特牛逼想买很多票的时候应该直接返回-1
+            if (!BasicTrain.is_released) {// 没有被release
+                std::cout << -1 << std::endl;
+                return;
+            }
+            if (std::stoi(arg['n']) > BasicTrain.SeatNum) {// 当你特牛逼想买很多票的时候应该直接返回-1
+                std::cout << -1 << std::endl;
+                return;
+            }
             // 可能没有这个站
             auto St_res_f = StDb.Find({f_h, i_h});
             auto St_res_t = StDb.Find({t_h, i_h});
-            if (!St_res_f.first)return ret_value(-1);
-            if (!St_res_t.first)return ret_value(-1);
+            if (!St_res_f.first || !St_res_t.first) {
+                std::cout << -1 << std::endl;
+                return;
+            }
 
             auto St1 = St_res_f.second.second, St2 = St_res_t.second.second;
-            if (St1.Rank >= St2.Rank)return ret_value(-1);
+            if (St1.Rank >= St2.Rank) {
+                std::cout << -1 << std::endl;
+                return;
+            }
             int IntervalDays = arg['d'] - Date(St1.Leaving);
             Date Day = BasicTrain.SaleDate.first + IntervalDays;
-            if (Day < BasicTrain.SaleDate.first || BasicTrain.SaleDate.second < Day)return ret_value(-1);// 不在区间内
+            if (Day < BasicTrain.SaleDate.first || BasicTrain.SaleDate.second < Day) {// 不在区间内
+                std::cout << -1 << std::endl;
+                return;
+            }
 //            if (!DayTrainDb.Find({Train.TrainID, Day}).first) {// 没有实例化，现在实例化
             DayTrainInfo tmp;
             for (int i = 1; i <= BasicTrain.StNum; ++i)
@@ -524,7 +610,10 @@ namespace hnyls2002 {
             auto User = UserDb[u_h];
             int RemainSeat = DayTrain.Get_Remain(St1.Rank, St2.Rank);
             int TicketNum = std::stoi(arg['n']);
-            if (RemainSeat < TicketNum && (arg['q'].empty() || arg['q'] == "false")) return ret_value(-1);
+            if (RemainSeat < TicketNum && (arg['q'].empty() || arg['q'] == "false")) {
+                std::cout << -1 << std::endl;
+                return;
+            }
             Order order;
             if (RemainSeat >= TicketNum) {// 可以买票
                 DayTrain.Modify(St1.Rank, St2.Rank, TicketNum);
@@ -549,38 +638,49 @@ namespace hnyls2002 {
             //OrderDb[{User.UserName, -(++User.OrderNum)}] = order;
             OrderDb.Insert({Hash(User.UserName.to_string()), -(++User.OrderNum)}, order);
             UserDb.Modify(u_h, User);
-            if (order.Status == success)return ret_type{std::to_string(tik.Cost * TicketNum)};
-            else return ret_type{"queue"};
+            if (order.Status == success)std::cout << tik.Cost * TicketNum << std::endl;
+            else std::cout << "queue" << std::endl;
         }
 
-        ret_type query_order(const CmdType &arg) {
+        void query_order(const CmdType &arg) {
             size_t u_h = Hash(arg['u']);
-            if (Logged.find(u_h) == Logged.end())return ret_value(-1);// 没有登录
-            ret_type ret;
-            auto it = OrderDb.FindBigger({u_h, -0x3f3f3f3f});
-            ret.push_back(std::to_string(UserDb[u_h].OrderNum));
-            for (; !it.AtEnd() && (*it).first.first == u_h; ++it) {
-                std::string tmp;
-                tmp += StatusToString[(*it).second.Status] + ' ';
-                tmp += (*it).second.tik.to_string((*it).second.From.to_string(), (*it).second.To.to_string());
-                ret.push_back(tmp);
+            if (Logged.find(u_h) == Logged.end()) {// 没有登录
+                std::cout << -1 << std::endl;
+                return;
             }
-            return ret;
+            OrderDb.Flush();
+            auto it = OrderDb.tree->FindBigger({u_h, -0x3f3f3f3f});
+            std::string ret;
+            ret += std::to_string(UserDb[u_h].OrderNum) + '\n';
+            for (; !it.AtEnd() && (*it).first.first == u_h; ++it) {
+                ret += StatusToString[(*it).second.Status] + ' ';
+                ret += (*it).second.tik.to_string((*it).second.From.to_string(), (*it).second.To.to_string()) + '\n';
+            }
+            std::cout << ret;
         }
 
-        ret_type refund_ticket(const CmdType &arg) {
+        void refund_ticket(const CmdType &arg) {
             size_t u_h = Hash(arg['u']);
-            if (Logged.find(u_h) == Logged.end())return ret_value(-1);// 没有登录
+            if (Logged.find(u_h) == Logged.end()) {// 没有登录
+                std::cout << -1 << std::endl;
+                return;
+            }
             int tot_order = UserDb[u_h].OrderNum;
             int id = arg['n'].empty() ? tot_order : tot_order - std::stoi(arg['n']) + 1;
-            if (id <= 0)return ret_value(-1);// 没有这么多订单
+            if (id <= 0) {// 没有这么多订单
+                std::cout << -1 << std::endl;
+                return;
+            }
             auto order = OrderDb[{u_h, -id}];// order 要退的订单 order2 要候补的订单
-            if (order.Status == refunded)return ret_value(-1);
+            if (order.Status == refunded) {
+                std::cout << -1 << std::endl;
+                return;
+            }
             bool flag = true;
             if (order.Status == pending)flag = false;
             order.Status = refunded;
             //OrderDb[{arg['u'], -id}] = order;
-            OrderDb.Modify({u_h, -id}, order);
+            auto res = OrderDb.Modify({u_h, -id}, order);
 
             std::pair<size_t, Date> info = {Hash(order.tik.TrainID.to_string()), order.Day};
             if (!flag) {// 为假说明要把这个退订的候补在PendDb中删除
@@ -590,7 +690,7 @@ namespace hnyls2002 {
                 DayTrain.Modify(order.pl, order.pr, -order.tik.RemainSeat);
 
                 // 处理候补的订单
-                auto it = PendDb.FindBigger({info, 0});
+                auto it = PendDb.tree->FindBigger({info, 0});
                 for (; !it.AtEnd() && (*it).first.first == info;) {
                     int RemainTickets = DayTrain.Get_Remain((*it).second.pl, (*it).second.pr);
                     if (RemainTickets >= (*it).second.TicketNum) {// 候补成功
@@ -606,20 +706,20 @@ namespace hnyls2002 {
                 //DayTrainDb[info] = DayTrain;
                 DayTrainDb.Modify(info, DayTrain);
             }
-            return ret_value(0);
+            std::cout << 0 << std::endl;
         }
 
-        ret_type rollback(const CmdType &arg) {
-            return ret_value(0);
+        void rollback(const CmdType &arg) {
+            std::cout << 0 << std::endl;
         }
 
-        ret_type clean(const CmdType &arg) {
-            return ret_value(0);
+        void clean(const CmdType &arg) {
+            std::cout << 0 << std::endl;
         }
 
-        ret_type exit(const CmdType &arg) {
+        void exit(const CmdType &arg) {
             Logged.clear();
-            return ret_type{"bye"};
+            std::cout << "bye" << std::endl;
         }
 
 #undef ret_value
