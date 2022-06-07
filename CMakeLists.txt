@@ -9,4 +9,16 @@ include_directories(BackEnd/db)
 include_directories(BackEnd/lib)
 include_directories(BackEnd/src)
 
-add_executable(code BackEnd/src/main.cpp)
+add_executable(code BackEnd/src/System.hpp
+        BackEnd/src/RollBack.hpp
+        BackEnd/src/Commander.hpp
+        BackEnd/db/BPlusTree.h
+        BackEnd/db/CacheMap.h
+        BackEnd/db/FileException.h
+        BackEnd/db/MemoryRiver.h
+        BackEnd/lib/vector.hpp
+        BackEnd/lib/map.hpp
+        BackEnd/lib/linked_hashmap.hpp
+        BackEnd/lib/exceptions.hpp
+        BackEnd/lib/utility.hpp
+        BackEnd/src/main.cpp)
