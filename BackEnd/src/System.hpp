@@ -95,7 +95,7 @@ namespace hnyls2002 {
         };
 
         //TrainID
-        ds::CacheMap<size_t, TrainInfo, 1499, 339, 2> TrainDb;
+        ds::CacheMap<size_t, TrainInfo, 499, 339, 2> TrainDb;
 
         struct StInfo {// 车站的信息，不同列车的相同车站都是不同的车站，维护了不同的信息。
             int Rank{}, Price{};// Rank是第几个车站，为了能够查询剩余票数,Price对应了Prices[]
@@ -478,6 +478,7 @@ namespace hnyls2002 {
             for (; !it_t.AtEnd() && (*it_t).first.first == t_h; ++it_t)
                 lis_t.push_back((*it_t).second);
 
+            static sjtu::linked_hashmap<size_t, TrainInfo> MyMp;
             // 得到了两个list
             TransType tik;
             bool flag = false;
@@ -485,14 +486,20 @@ namespace hnyls2002 {
             for (auto &S: lis_s) {// 起点车次 S
                 sjtu::linked_hashmap<std::string, int> mp;
                 auto TrainIDS = S.TrainID.to_string();
-                auto TrainS = TrainDb[Hash(TrainIDS)];
+                TrainInfo TrainS;
+                if (MyMp.find(Hash(TrainIDS)) == MyMp.end())MyMp[Hash(TrainIDS)] = TrainDb[Hash(TrainIDS)];
+                TrainS = MyMp[Hash(TrainIDS)];
+//                auto TrainS = TrainDb[Hash(TrainIDS)];
                 auto BasicTrainS = BasicTrainDb[Hash(TrainIDS)];
                 for (int i = S.Rank + 1; i <= BasicTrainS.StNum; ++i) // map 中存 -s 后面所有可以到的站 (-s) -> (-trans)
                     mp[TrainS.StName[i].to_string()] = i;
                 for (auto &T: lis_t) {// 终点车次 T
                     auto TrainIDT = T.TrainID.to_string();
                     if (TrainIDS == TrainIDT)continue;// 换乘的同一辆车
-                    auto TrainT = TrainDb[Hash(TrainIDT)];
+                    TrainInfo TrainT;
+                    if (MyMp.find(Hash(TrainIDT)) == MyMp.end())MyMp[Hash(TrainIDT)] = TrainDb[Hash(TrainIDT)];
+                    TrainT = MyMp[Hash(TrainIDT)];
+//                    auto TrainT = TrainDb[Hash(TrainIDT)];
                     auto BasicTrainT = BasicTrainDb[Hash(TrainIDT)];
                     for (int i = 1; i < T.Rank; ++i) {// 中转站，要求 -t 前面的车站 (-trans) -> (-t)
                         fstr<StNameMax> trans = TrainT.StName[i];
