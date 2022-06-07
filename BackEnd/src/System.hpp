@@ -412,20 +412,24 @@ namespace hnyls2002 {
             auto it_s = StDb.tree->FindBigger({s_h, 0});
             auto it_t = StDb.tree->FindBigger({t_h, 0});
             sjtu::vector<StInfo> lis_s, lis_t;
-            for (; !it_s.AtEnd() && (*it_s).first.first == s_h; ++it_s)
+            sjtu::vector<size_t> hash_s, hash_t;
+            for (; !it_s.AtEnd() && (*it_s).first.first == s_h; ++it_s) {
                 lis_s.push_back((*it_s).second);
-            for (; !it_t.AtEnd() && (*it_t).first.first == t_h; ++it_t)
+                hash_s.push_back((*it_s).first.second);
+            }
+            for (; !it_t.AtEnd() && (*it_t).first.first == t_h; ++it_t) {
                 lis_t.push_back((*it_t).second);
+                hash_t.push_back((*it_t).first.second);
+            }
 
             sjtu::vector<TicketType> tickets;
-            sjtu::map<fstr<TrainIDMax>, int> mp;
-            for (int i = 0; i < lis_s.size(); ++i)mp[lis_s[i].TrainID] = i;
-            for (int j = 0; j < lis_t.size(); ++j) {
-                auto TrainID = lis_t[j].TrainID.to_string();
-                if (mp.find(TrainID) == mp.end())continue;
-                int i = mp[TrainID];
+            for (int i = 0, j = 0; i < lis_s.size(); ++i) {
+                while (j < lis_t.size() && hash_t[j] < hash_s[i])++j;
+                if (j >= lis_t.size())break;
+                if (hash_s[i] != hash_t[j])continue;
                 if (lis_s[i].Rank >= lis_t[j].Rank)continue;
-                auto BasicTrain = BasicTrainDb[Hash(TrainID)];
+                auto TrainID = lis_t[j].TrainID.to_string();
+                auto BasicTrain = BasicTrainDb[hash_s[i]];
                 auto tik = Get_Ticket(TrainID, BasicTrain, lis_s[i], lis_t[j], arg['d']);
                 if (tik.first == 0)tickets.push_back(tik.second);
             }
