@@ -34,7 +34,7 @@ namespace hnyls2002 {
                    PendDb(STORAGE_DIR "index7", STORAGE_DIR "record7") {
         }
 
-        void GetSize() {
+        void GetSize() const {
             UserDb.tree->GetSizeInfo();
             BasicTrainDb.tree->GetSizeInfo();
             TrainDb.tree->GetSizeInfo();
@@ -73,7 +73,7 @@ namespace hnyls2002 {
         };
 
         // UserName
-        ds::CacheMap<size_t, UserInfo, 9973, 339, 29> UserDb;
+        ds::CacheMap<size_t, UserInfo, 29989, 339, 29> UserDb;
 
         // UserName
         sjtu::map<size_t, bool> Logged;
@@ -95,7 +95,7 @@ namespace hnyls2002 {
         };
 
         //TrainID
-        ds::CacheMap<size_t, TrainInfo, 997, 339, 2> TrainDb;
+        ds::CacheMap<size_t, TrainInfo, 1499, 339, 2> TrainDb;
 
         struct StInfo {// 车站的信息，不同列车的相同车站都是不同的车站，维护了不同的信息。
             int Rank{}, Price{};// Rank是第几个车站，为了能够查询剩余票数,Price对应了Prices[]
@@ -111,7 +111,7 @@ namespace hnyls2002 {
         };
 
         //StName
-        ds::CacheMap<std::pair<size_t, size_t>, StInfo, 49999, 208, 68, PairHash> StDb;
+        ds::CacheMap<std::pair<size_t, size_t>, StInfo, 69997, 208, 68, PairHash> StDb;
 
         struct DayTrainInfo {
             int RemainSeats[StNumMax]{};// 第1项为SeatNum，以此类推
@@ -418,8 +418,8 @@ namespace hnyls2002 {
                 lis_t.push_back((*it_t).second);
 
             sjtu::vector<TicketType> tickets;
-            sjtu::map<std::string, int> mp;
-            for (int i = 0; i < lis_s.size(); ++i)mp[lis_s[i].TrainID.to_string()] = i;
+            sjtu::map<fstr<TrainIDMax>, int> mp;
+            for (int i = 0; i < lis_s.size(); ++i)mp[lis_s[i].TrainID] = i;
             for (int j = 0; j < lis_t.size(); ++j) {
                 auto TrainID = lis_t[j].TrainID.to_string();
                 if (mp.find(TrainID) == mp.end())continue;
