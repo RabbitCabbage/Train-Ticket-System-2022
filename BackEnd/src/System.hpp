@@ -95,7 +95,7 @@ namespace hnyls2002 {
         };
 
         //TrainID
-        ds::CacheMap<size_t, TrainInfo, 499, 339, 2> TrainDb;
+        ds::CacheMap<size_t, TrainInfo, 7, 339, 2> TrainDb;
 
         struct StInfo {// 车站的信息，不同列车的相同车站都是不同的车站，维护了不同的信息。
             int Rank{}, Price{};// Rank是第几个车站，为了能够查询剩余票数,Price对应了Prices[]
@@ -478,7 +478,7 @@ namespace hnyls2002 {
             for (; !it_t.AtEnd() && (*it_t).first.first == t_h; ++it_t)
                 lis_t.push_back((*it_t).second);
 
-            static sjtu::linked_hashmap<size_t, TrainInfo> MyMp;
+            sjtu::linked_hashmap<size_t, TrainInfo> MyMp;
             // 得到了两个list
             TransType tik;
             bool flag = false;
