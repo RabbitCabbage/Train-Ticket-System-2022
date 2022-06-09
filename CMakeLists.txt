@@ -10,7 +10,6 @@ include_directories(BackEnd/lib)
 include_directories(BackEnd/src)
 
 add_executable(code BackEnd/src/System.hpp
-        BackEnd/src/RollBack.hpp
         BackEnd/src/Commander.hpp
         BackEnd/db/BPlusTree.h
         BackEnd/db/CacheMap.h
@@ -21,4 +20,6 @@ add_executable(code BackEnd/src/System.hpp
         BackEnd/lib/linked_hashmap.hpp
         BackEnd/lib/exceptions.hpp
         BackEnd/lib/utility.hpp
-        BackEnd/src/main.cpp)
+        BackEnd/src/RollBack.hpp
+        BackEnd/src/main.cpp
+        )
