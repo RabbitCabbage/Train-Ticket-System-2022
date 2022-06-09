@@ -8,6 +8,7 @@
 #include "../db/BPlusTree.h"
 #include "../db/CacheMap.h"
 #include "Commander.hpp"
+#include "RollBack.hpp"
 
 #define STORAGE_DIR ""
 
@@ -31,7 +32,14 @@ namespace hnyls2002 {
                    StDb(STORAGE_DIR "index4", STORAGE_DIR "record4"),
                    DayTrainDb(STORAGE_DIR "index5", STORAGE_DIR "record5"),
                    OrderDb(STORAGE_DIR "index6", STORAGE_DIR "record6"),
-                   PendDb(STORAGE_DIR "index7", STORAGE_DIR "record7") {
+                   PendDb(STORAGE_DIR "index7", STORAGE_DIR "record7"),
+                   UserRoll("roll1"),
+                   BasicTrainRoll("roll2"),
+                   TrainRoll("roll3"),
+                   StRoll("roll4"),
+                   DayTrainRoll("roll5"),
+                   OrderRoll("roll6"),
+                   PendRoll("roll7") {
         }
 
         void GetSize() const {
@@ -74,6 +82,7 @@ namespace hnyls2002 {
 
         // UserName
         ds::CacheMap<size_t, UserInfo, 29989, 339, 29> UserDb;
+        hnyls2002::Stack<size_t, UserInfo> UserRoll;
 
         // UserName
         sjtu::map<size_t, bool> Logged;
@@ -83,24 +92,31 @@ namespace hnyls2002 {
             int StNum{}, SeatNum{};
             std::pair<Date, Date> SaleDate;
             char Type{};
+
+            BasicTrainInfo() : SaleDate{0, 0} {
+            }
         };
 
         // UserName
         ds::CacheMap<size_t, BasicTrainInfo, 49999, 339, 127> BasicTrainDb;// 外存对象
+        hnyls2002::Stack<size_t, BasicTrainInfo> BasicTrainRoll;
 
         struct TrainInfo { // 列车的数据量最大的信息，只在query_train的时候会用到。
             fstr<StNameMax> StName[StNumMax];
             int Prices[StNumMax]{};// 用前缀和来存票价 i 到第i站的票价
             std::pair<Time, Time> TimeTable[StNumMax];
+
+            TrainInfo() {}
         };
 
         //TrainID
         ds::CacheMap<size_t, TrainInfo, 1499, 339, 2> TrainDb;
+        hnyls2002::Stack<size_t, TrainInfo> TrainRoll;
 
         struct StInfo {// 车站的信息，不同列车的相同车站都是不同的车站，维护了不同的信息。
             int Rank{}, Price{};// Rank是第几个车站，为了能够查询剩余票数,Price对应了Prices[]
             fstr<TrainIDMax> TrainID;
-            Time Arriving, Leaving;// 对应了TimeTable[]
+            Time Arriving{0}, Leaving{0};// 对应了TimeTable[]
         };
 
         class PairHash {
@@ -112,6 +128,7 @@ namespace hnyls2002 {
 
         //StName
         ds::CacheMap<std::pair<size_t, size_t>, StInfo, 69997, 208, 68, PairHash> StDb;
+        hnyls2002::Stack<std::pair<size_t, size_t>, StInfo> StRoll;
 
         struct DayTrainInfo {
             int RemainSeats[StNumMax]{};// 第1项为SeatNum，以此类推
@@ -137,6 +154,7 @@ namespace hnyls2002 {
         };
 
         ds::CacheMap<std::pair<size_t, Date>, DayTrainInfo, 9973, 208, 9, DayTrainHash> DayTrainDb;
+        hnyls2002::Stack<std::pair<size_t, Date>, DayTrainInfo> DayTrainRoll;
 
         //reference to stackoverflow
         //https://stackoverflow.com/questions/26331628/reference-to-non-static-member-function-must-be-called
@@ -173,6 +191,8 @@ namespace hnyls2002 {
             User.mailAdd = arg['m'], User.privilege = arg['g'];
             User.OrderNum = 0;
             UserDb.Insert(u_h, User);
+            // delete the previous one ---- 1
+            UserRoll.push(arg.TimeStamp * 10 + 1, u_h, {});
             std::cout << 0 << std::endl;
         }
 
@@ -227,6 +247,8 @@ namespace hnyls2002 {
                 return;
             }
             UserInfo User = UserDb[u_h];// 最好不用引用传递，引用似乎不能在外存上实现
+            // modify to the previous one ---- 2
+            UserRoll.push(arg.TimeStamp * 10 + 2, u_h, User);
             if (!arg['p'].empty())User.Passwd = arg['p'];
             if (!arg['n'].empty())User.Name = arg['n'];
             if (!arg['m'].empty())User.mailAdd = arg['m'];
@@ -278,7 +300,9 @@ namespace hnyls2002 {
             }
 
             BasicTrainDb.Insert(i_h, BasicTrain);
+            BasicTrainRoll.push(arg.TimeStamp * 10 + 1, i_h, {});
             TrainDb.Insert(i_h, Train);
+            TrainRoll.push(arg.TimeStamp * 10 + 1, i_h, {});
 
             std::cout << 0 << std::endl;
         }
@@ -290,7 +314,9 @@ namespace hnyls2002 {
                 return;
             }
             // 所有对于BasicTrain的操作，只操作Mp。
+            BasicTrainRoll.push(arg.TimeStamp * 10 + 3, i_h, BasicTrainDb[i_h]);
             BasicTrainDb.Remove(i_h);
+            TrainRoll.push(arg.TimeStamp * 10 + 3, i_h, TrainDb[i_h]);
             TrainDb.Remove(i_h);
             std::cout << 0 << std::endl;
         }
@@ -306,6 +332,7 @@ namespace hnyls2002 {
                 std::cout << -1 << std::endl;
                 return;
             }
+            BasicTrainRoll.push(arg.TimeStamp * 10 + 2, i_h, BasicTrain);
             BasicTrain.is_released = true;
             BasicTrainDb.Modify(i_h, BasicTrain);
 
@@ -319,6 +346,8 @@ namespace hnyls2002 {
                 St.Price = Train.Prices[i];
                 St.TrainID = arg['i'];
                 StDb.Insert({Hash(Train.StName[i].to_string()), Hash(arg['i'])}, St);
+                // delete the previous one ---- 1
+                StRoll.push(arg.TimeStamp * 10 + 1, {Hash(Train.StName[i].to_string()), Hash(arg['i'])}, {});
             }
             std::cout << 0 << std::endl;
         }
@@ -538,6 +567,8 @@ namespace hnyls2002 {
             fstr<StNameMax> From, To;
             Date Day;
             int pl{}, pr{}, TimeStamp{};
+
+            Order() {}
         };
 
         class PIHash {
@@ -547,8 +578,9 @@ namespace hnyls2002 {
             }
         };
 
-        ds::CacheMap<std::pair<size_t, int>, Order, 29999, 203, 26, PIHash> OrderDb;
         //bptree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;// 第二维存这是第几个订单
+        ds::CacheMap<std::pair<size_t, int>, Order, 29999, 203, 26, PIHash> OrderDb;
+        hnyls2002::Stack<std::pair<size_t, int>, Order> OrderRoll;
 
         struct PendType {
             fstr<UserNameMax> UserName;
@@ -562,8 +594,9 @@ namespace hnyls2002 {
             }
         };
 
-        ds::CacheMap<std::pair<std::pair<size_t, Date>, int>, PendType, 49999, 145, 60, PDHash> PendDb;
         //bptree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType> PendDb;// 第二维存[-时间戳] 购票的时间戳
+        ds::CacheMap<std::pair<std::pair<size_t, Date>, int>, PendType, 49999, 145, 60, PDHash> PendDb;
+        hnyls2002::Stack<std::pair<std::pair<size_t, Date>, int>, PendType> PendRoll;
 
         void buy_ticket(const CmdType &arg) {
             size_t f_h = Hash(arg['f']), t_h = Hash(arg['t']), i_h = Hash(arg['i']), u_h = Hash(arg['u']);
@@ -608,7 +641,8 @@ namespace hnyls2002 {
             for (int i = 1; i <= BasicTrain.StNum; ++i)
                 tmp.RemainSeats[i] = BasicTrain.SeatNum;
             //DayTrainDb[{Train.TrainID, Day}] = tmp;
-            DayTrainDb.Insert({i_h, Day}, tmp);
+            auto res = DayTrainDb.Insert({i_h, Day}, tmp);
+            if (res) DayTrainRoll.push(arg.TimeStamp * 10 + 1, {i_h, Day}, {});
 //            }
             auto DayTrain = DayTrainDb[{i_h, Day}];
             auto User = UserDb[u_h];
@@ -620,14 +654,15 @@ namespace hnyls2002 {
             }
             Order order;
             if (RemainSeat >= TicketNum) {// 可以买票
+                DayTrainRoll.push(arg.TimeStamp * 10 + 2, {i_h, Day}, DayTrain);
                 DayTrain.Modify(St1.Rank, St2.Rank, TicketNum);
                 //DayTrainDb[{Train.TrainID, Day}] = DayTrain;
                 DayTrainDb.Modify({i_h, Day}, DayTrain);
                 order.Status = success;
             } else {
-                //PendDb[{{Train.TrainID, Day}, arg.TimeStamp}] = PendType{arg['u'], TicketNum, pl, pr, User.OrderNum + 1};
-                PendDb.Insert({{i_h, Day}, arg.TimeStamp},
-                              PendType{arg['u'], TicketNum, St1.Rank, St2.Rank, User.OrderNum + 1});
+                PendType ele{arg['u'], TicketNum, St1.Rank, St2.Rank, User.OrderNum + 1};
+                PendDb.Insert({{i_h, Day}, arg.TimeStamp}, ele);
+                PendRoll.push(arg.TimeStamp * 10 + 1, {{i_h, Day}, arg.TimeStamp}, {});
                 order.Status = pending;
             }
             TicketType tik;
@@ -639,10 +674,12 @@ namespace hnyls2002 {
             tik.TrainID = arg['i'];
             order.tik = tik, order.From = arg['f'], order.To = arg['t'], order.Day = Day;
             order.pl = St1.Rank, order.pr = St2.Rank, order.TimeStamp = arg.TimeStamp;
-            //OrderDb[{User.UserName, -(++User.OrderNum)}] = order;
-            OrderDb.Insert({Hash(User.UserName.to_string()), -(++User.OrderNum)}, order);
+            UserRoll.push(arg.TimeStamp * 10 + 2, u_h, User);
+            ++User.OrderNum;
+            OrderDb.Insert({Hash(User.UserName.to_string()), -User.OrderNum}, order);
+            OrderRoll.push(arg.TimeStamp * 10 + 1, {Hash(User.UserName.to_string()), -User.OrderNum}, {});
             UserDb.Modify(u_h, User);
-            if (order.Status == success)std::cout << tik.Cost * TicketNum << std::endl;
+            if (order.Status == success)std::cout << (long long) tik.Cost * TicketNum << std::endl;
             else std::cout << "queue" << std::endl;
         }
 
@@ -682,15 +719,17 @@ namespace hnyls2002 {
             }
             bool flag = true;
             if (order.Status == pending)flag = false;
+            OrderRoll.push(arg.TimeStamp * 10 + 2, {u_h, -id}, order);
             order.Status = refunded;
-            //OrderDb[{arg['u'], -id}] = order;
-            auto res = OrderDb.Modify({u_h, -id}, order);
+            OrderDb.Modify({u_h, -id}, order);
 
             std::pair<size_t, Date> info = {Hash(order.tik.TrainID.to_string()), order.Day};
             if (!flag) {// 为假说明要把这个退订的候补在PendDb中删除
+                PendRoll.push(arg.TimeStamp * 10 + 3, {info, order.TimeStamp}, PendDb[{info, order.TimeStamp}]);
                 PendDb.Remove({info, order.TimeStamp});
             } else {// 为真代表会有多的票空出来
                 auto DayTrain = DayTrainDb[info];
+                DayTrainRoll.push(arg.TimeStamp * 10 + 2, info, DayTrain);
                 DayTrain.Modify(order.pl, order.pr, -order.tik.RemainSeat);
 
                 // 处理候补的订单
@@ -699,10 +738,13 @@ namespace hnyls2002 {
                     int RemainTickets = DayTrain.Get_Remain((*it).second.pl, (*it).second.pr);
                     if (RemainTickets >= (*it).second.TicketNum) {// 候补成功
                         auto order2 = OrderDb[{Hash((*it).second.UserName.to_string()), -(*it).second.id}];
+                        OrderRoll.push(arg.TimeStamp * 10 + 2,
+                                       {Hash((*it).second.UserName.to_string()), -(*it).second.id}, order2);
                         order2.Status = success;
                         //OrderDb[{(*it).second.UserName, -(*it).second.id}] = order2;
                         OrderDb.Modify({Hash((*it).second.UserName.to_string()), -(*it).second.id}, order2);
                         DayTrain.Modify((*it).second.pl, (*it).second.pr, (*it).second.TicketNum);
+                        PendRoll.push(arg.TimeStamp * 10 + 3, (*it).first, (*it).second);
                         PendDb.Remove((*it).first);// 可能一次删除很多个
                         ++it;
                     } else ++it;
@@ -713,7 +755,62 @@ namespace hnyls2002 {
             std::cout << 0 << std::endl;
         }
 
+        bool Roll(int DesTime) {
+            int Max = 0, id = -1;
+            if (!UserRoll.empty() && UserRoll.top() > Max)Max = UserRoll.top(), id = 1;
+            if (!BasicTrainRoll.empty() && BasicTrainRoll.top() > Max)Max = BasicTrainRoll.top(), id = 2;
+            if (!TrainRoll.empty() && TrainRoll.top() > Max) Max = TrainRoll.top(), id = 3;
+            if (!StRoll.empty() && StRoll.top() > Max) Max = StRoll.top(), id = 4;
+            if (!DayTrainRoll.empty() && DayTrainRoll.top() > Max) Max = DayTrainRoll.top(), id = 5;
+            if (!OrderRoll.empty() && OrderRoll.top() > Max) Max = OrderRoll.top(), id = 6;
+            if (!PendRoll.empty() && PendRoll.top() > Max) Max = PendRoll.top(), id = 7;
+            if (Max < DesTime * 10)return false;
+            if (id == 1) {
+                auto res = UserRoll.pop();
+                if (Max % 10 == 1) UserDb.Remove(res.key);
+                else if (Max % 10 == 2) UserDb.Modify(res.key, res.info);
+                else UserDb.Insert(res.key, res.info);
+            } else if (id == 2) {
+                auto res = BasicTrainRoll.pop();
+                if (Max % 10 == 1)BasicTrainDb.Remove(res.key);
+                else if (Max % 10 == 2) BasicTrainDb.Modify(res.key, res.info);
+                else BasicTrainDb.Insert(res.key, res.info);
+            } else if (id == 3) {
+                auto res = TrainRoll.pop();
+                if (Max % 10 == 1)TrainDb.Remove(res.key);
+                else if (Max % 10 == 2) TrainDb.Modify(res.key, res.info);
+                else TrainDb.Insert(res.key, res.info);
+            } else if (id == 4) {
+                auto res = StRoll.pop();
+                if (Max % 10 == 1)StDb.Remove(res.key);
+                else if (Max % 10 == 2) StDb.Modify(res.key, res.info);
+                else StDb.Insert(res.key, res.info);
+            } else if (id == 5) {
+                auto res = DayTrainRoll.pop();
+                if (Max % 10 == 1)DayTrainDb.Remove(res.key);
+                else if (Max % 10 == 2) DayTrainDb.Modify(res.key, res.info);
+                else DayTrainDb.Insert(res.key, res.info);
+            } else if (id == 6) {
+                auto res = OrderRoll.pop();
+                if (Max % 10 == 1)OrderDb.Remove(res.key);
+                else if (Max % 10 == 2) OrderDb.Modify(res.key, res.info);
+                else OrderDb.Insert(res.key, res.info);
+            } else {
+                auto res = PendRoll.pop();
+                if (Max % 10 == 1)PendDb.Remove(res.key);
+                else if (Max % 10 == 2) PendDb.Modify(res.key, res.info);
+                else PendDb.Insert(res.key, res.info);
+            }
+            return true;
+        }
+
         void rollback(const CmdType &arg) {
+            Logged.clear();
+            if (std::stoi(arg['t']) >= arg.TimeStamp) {
+                std::cout << -1 << std::endl;
+                return;
+            }
+            while (Roll(std::stoi(arg['t'])));
             std::cout << 0 << std::endl;
         }
 
