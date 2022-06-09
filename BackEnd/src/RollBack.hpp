@@ -41,6 +41,8 @@ namespace hnyls2002 {
             file.close();
         }
 
+        int GetProperNum() { return 4096 / (sizeof(int) + sizeof(Key) + sizeof(Info)); }
+
         void push(int Time, const Key &key, const Info &info) {
             file.open(file_name);
             if (stack_size % max_block_size == 0) {

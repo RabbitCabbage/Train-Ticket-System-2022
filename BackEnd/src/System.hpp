@@ -62,6 +62,16 @@ namespace hnyls2002 {
             std::cerr << "PendDb : " << sizeof(PendDb) / 1e6 << std::endl;
         }
 
+        void GetRollBackSize() {
+            std::cerr << "UserRoll : " << UserRoll.GetProperNum() << std::endl;
+            std::cerr << "BasicTrainRoll : " << BasicTrainRoll.GetProperNum() << std::endl;
+            std::cerr << "TrainDbRoll : " << TrainRoll.GetProperNum() << std::endl;
+            std::cerr << "StDbRoll : " << StRoll.GetProperNum() << std::endl;
+            std::cerr << "DayTrainDbRoll : " << DayTrainRoll.GetProperNum() << std::endl;
+            std::cerr << "OrderDbRoll : " << OrderRoll.GetProperNum() << std::endl;
+            std::cerr << "PendDbRoll : " << PendRoll.GetProperNum() << std::endl;
+        }
+
     private:
 
         struct UserInfo {
@@ -82,7 +92,7 @@ namespace hnyls2002 {
 
         // UserName
         ds::CacheMap<size_t, UserInfo, 29989, 339, 29> UserDb;
-        hnyls2002::Stack<size_t, UserInfo> UserRoll;
+        hnyls2002::Stack<size_t, UserInfo, 28> UserRoll;
 
         // UserName
         sjtu::map<size_t, bool> Logged;
@@ -99,7 +109,7 @@ namespace hnyls2002 {
 
         // UserName
         ds::CacheMap<size_t, BasicTrainInfo, 49999, 339, 127> BasicTrainDb;// 外存对象
-        hnyls2002::Stack<size_t, BasicTrainInfo> BasicTrainRoll;
+        hnyls2002::Stack<size_t, BasicTrainInfo, 113> BasicTrainRoll;
 
         struct TrainInfo { // 列车的数据量最大的信息，只在query_train的时候会用到。
             fstr<StNameMax> StName[StNumMax];
@@ -111,7 +121,7 @@ namespace hnyls2002 {
 
         //TrainID
         ds::CacheMap<size_t, TrainInfo, 1499, 339, 2> TrainDb;
-        hnyls2002::Stack<size_t, TrainInfo> TrainRoll;
+        hnyls2002::Stack<size_t, TrainInfo, 1> TrainRoll;
 
         struct StInfo {// 车站的信息，不同列车的相同车站都是不同的车站，维护了不同的信息。
             int Rank{}, Price{};// Rank是第几个车站，为了能够查询剩余票数,Price对应了Prices[]
@@ -128,7 +138,7 @@ namespace hnyls2002 {
 
         //StName
         ds::CacheMap<std::pair<size_t, size_t>, StInfo, 69997, 208, 68, PairHash> StDb;
-        hnyls2002::Stack<std::pair<size_t, size_t>, StInfo> StRoll;
+        hnyls2002::Stack<std::pair<size_t, size_t>, StInfo, 64> StRoll;
 
         struct DayTrainInfo {
             int RemainSeats[StNumMax]{};// 第1项为SeatNum，以此类推
@@ -154,7 +164,7 @@ namespace hnyls2002 {
         };
 
         ds::CacheMap<std::pair<size_t, Date>, DayTrainInfo, 9973, 208, 9, DayTrainHash> DayTrainDb;
-        hnyls2002::Stack<std::pair<size_t, Date>, DayTrainInfo> DayTrainRoll;
+        hnyls2002::Stack<std::pair<size_t, Date>, DayTrainInfo, 9> DayTrainRoll;
 
         //reference to stackoverflow
         //https://stackoverflow.com/questions/26331628/reference-to-non-static-member-function-must-be-called
@@ -587,7 +597,7 @@ namespace hnyls2002 {
 
         //bptree<std::pair<fstr<UserNameMax>, int>, Order> OrderDb;// 第二维存这是第几个订单
         ds::CacheMap<std::pair<size_t, int>, Order, 29999, 203, 26, PIHash> OrderDb;
-        hnyls2002::Stack<std::pair<size_t, int>, Order> OrderRoll;
+        hnyls2002::Stack<std::pair<size_t, int>, Order, 25> OrderRoll;
 
         struct PendType {
             fstr<UserNameMax> UserName;
@@ -603,7 +613,7 @@ namespace hnyls2002 {
 
         //bptree<std::pair<std::pair<fstr<TrainIDMax>, Date>, int>, PendType> PendDb;// 第二维存[-时间戳] 购票的时间戳
         ds::CacheMap<std::pair<std::pair<size_t, Date>, int>, PendType, 49999, 145, 60, PDHash> PendDb;
-        hnyls2002::Stack<std::pair<std::pair<size_t, Date>, int>, PendType> PendRoll;
+        hnyls2002::Stack<std::pair<std::pair<size_t, Date>, int>, PendType, 56> PendRoll;
 
         void buy_ticket(const CmdType &arg) {
             size_t f_h = Hash(arg['f']), t_h = Hash(arg['t']), i_h = Hash(arg['i']), u_h = Hash(arg['u']);

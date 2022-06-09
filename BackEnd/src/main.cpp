@@ -31,6 +31,7 @@ int main() {
     hnyls2002::System sys;
     //sys.GetSize();
     //sys.GetCachedSize();
+    //sys.GetRollBackSize();
     std::string str;
     while (getline(std::cin, str))sys.Opt(str);
     clock_t end = clock();
