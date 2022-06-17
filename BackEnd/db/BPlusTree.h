@@ -453,6 +453,7 @@ namespace ds {
                 front.keys[i] = rear.keys[j];
             }
             front.children_num += rear.children_num;
+            index_memory->Delete(rear.location);
             if (!index_memory->Write(front.location, front)) {
                 ds::WriteException e;
                 throw e;
@@ -482,6 +483,7 @@ namespace ds {
                 ds::WriteException e;
                 throw e;
             }
+            record_memory->Delete(rear.location);
         }
 
         //merged index is the child that remains
@@ -722,6 +724,7 @@ namespace ds {
                         if (parent.location == root.location) {
                             if (parent.children_num == 1) {
                                 root = merged_child;
+                                index_memory->Delete(root_index);
                                 root_index = merged_child.location;
                                 //success = true;
                                 cur = parent;
@@ -806,9 +809,9 @@ namespace ds {
 //            int_memory->Write(sizeof(int), root_index);
             delete[]index_file;
             delete[]record_file;
+            delete int_memory;
             delete index_memory;
             delete record_memory;
-            delete int_memory;
         }
 
         //插入一个元素，参数是插入元素的键值和记录的详细信息，返回插入是否成功

@@ -65,7 +65,13 @@ namespace ds {
         ~MemoryRiver() {
             std::fstream file;
             file.open(trash_name);
-            file.read(reinterpret_cast<char *>(&top), 4096);
+            int num_block = count / 1024 + 1;
+            if (num_block != 1) {
+                file.seekp(4096 * (num_block - 1), std::ios::beg);
+                file.write(reinterpret_cast<char *>(&top), 4096);
+                file.seekg(0, std::ios::beg);
+                file.read(reinterpret_cast<char *>(&top), 4096);
+            }
             top.position[0] = count;
             file.seekp(0, std::ios::beg);
             file.write(reinterpret_cast<char *>(&top), 4096);
@@ -114,14 +120,19 @@ namespace ds {
         }
 
         void Delete(const int &index) {
+
+//            std::cerr << "Index : " << index << std::endl;
+//            std::cerr << "Count : " << count << std::endl;
+
             if ((count + 1) % 1024 == 0) {
+                std::fstream file;
+                file.open(trash_name);
+                int block_num = count / 1024 + 1;
+                file.seekp(4096 * (block_num - 1), std::ios::beg);
+                file.write(reinterpret_cast<char *>(&top), 4096);
                 top = Block();
                 top.position[0] = index;
-                int block_num = count / 1024 + 1;
-                std::fstream file;
-                file.open(file_name);
-                file.seekp(4096 * block_num, std::ios::beg);
-                file.write(reinterpret_cast<char *>(top), 4096);
+                file.write(reinterpret_cast<char *>(&top), 4096);
                 file.close();
             } else top.position[(count + 1) % 1024] = index;
             ++count;
@@ -141,8 +152,15 @@ namespace ds {
                 file.close();
                 return location;
             } else {
+                file.close();
                 int ret = top.position[count % 1024];
+/*
+                std::cerr << "position : " << ret << std::endl;
+                std::cerr << "count" << count << std::endl;
+                std::cerr << "countcc " << top.position[0] << std::endl;
+*/
                 if (count % 1024 == 0) {
+                    file.open(trash_name);
                     int block_num = count / 1024 + 1;
                     file.seekg((block_num - 2) * 1024, std::ios::beg);
                     file.read(reinterpret_cast<char *>(&top), 4096);
