@@ -8,11 +8,17 @@
 #include <fstream>
 #include <cstring>
 #include "FileException.h"
+
 namespace ds {
     template<typename T>
     class MemoryRiver {
     private:
         char *file_name;
+        char *trash_name;
+        int count{};
+        struct Block {// first Block first element --- the number of the stack
+            int position[1024]{};
+        } top;
     public:
         MemoryRiver(char *fn) {
             std::fstream file;
@@ -24,7 +30,32 @@ namespace ds {
                 file.clear();
                 file.open(file_name, std::ios::out | std::ios::app);
             }
-            if (!file.is_open()){
+            if (!file.is_open()) {
+                ds::OpenException e;
+                throw e;
+            }
+            file.close();
+
+            trash_name = new char[strlen(fn) + 2];
+            trash_name[0] = '_';
+            strcpy(trash_name + 1, fn);
+
+            file.clear();
+            file.open(trash_name, std::ios::in);
+            if (!file) {
+                file.clear();
+                file.open(trash_name, std::ios::out | std::ios::app);
+                file.write(reinterpret_cast<char *>(&top), 4096);
+            } else {
+                file.read(reinterpret_cast<char *>(&top), 4096);
+                count = top.position[0];
+                int block_num = count / 1024 + 1;
+                if (block_num > 1) {
+                    file.seekg(4096 * (block_num - 1), std::ios::beg);
+                    file.read(reinterpret_cast<char *>(&top), 4096);
+                }
+            }
+            if (!file.is_open()) {
                 ds::OpenException e;
                 throw e;
             }
@@ -32,20 +63,28 @@ namespace ds {
         }
 
         ~MemoryRiver() {
+            std::fstream file;
+            file.open(trash_name);
+            file.read(reinterpret_cast<char *>(&top), 4096);
+            top.position[0] = count;
+            file.seekp(0, std::ios::beg);
+            file.write(reinterpret_cast<char *>(&top), 4096);
+            file.close();
             delete[]file_name;
+            delete[]trash_name;
         }
 
-        bool Write(const int& index, const T &t) {
+        bool Write(const int &index, const T &t) {
             std::fstream file;
             file.clear();
 //            if(file.fail())printf("%s","clear error\n");
             file.open(file_name);
 //            if(file.fail())printf("%s","open error\n");
-            if (!file.is_open()){
+            if (!file.is_open()) {
                 ds::OpenException e;
                 throw e;
             }
-            file.seekp(index,std::ios::beg);
+            file.seekp(index, std::ios::beg);
 //            if(file.fail())printf("%s","seek error\n");
             file.write(reinterpret_cast<const char *>(&t), sizeof(T));
             if (file.fail()) {
@@ -56,11 +95,11 @@ namespace ds {
             return true;
         }
 
-        bool Read(const int& index, T &res) {
+        bool Read(const int &index, T &res) {
             std::fstream file;
             file.clear();
             file.open(file_name);
-            if (!file.is_open()){
+            if (!file.is_open()) {
                 ds::OpenException e;
                 throw e;
             }
@@ -74,37 +113,43 @@ namespace ds {
             return true;
         }
 
-        int Append(const T &t) {
-            std::fstream file;
-            //write a T at the end of the file and return the location writing in
-            file.clear();
-            file.open(file_name);
-            if (!file.is_open()){
-                ds::OpenException e;
-                throw e;
-            }
-            file.seekp(0, std::ios::end);
-            int location = file.tellp();
-            file.write(reinterpret_cast<const char *>(&t), sizeof(T));
-            if (file.fail()){
-                ds::AppendException e;
-                throw e;
-            }
-            file.close();
-            return location;
+        void Delete(const int &index) {
+            if ((count + 1) % 1024 == 0) {
+                top = Block();
+                top.position[0] = index;
+                int block_num = count / 1024 + 1;
+                std::fstream file;
+                file.open(file_name);
+                file.seekp(4096 * block_num, std::ios::beg);
+                file.write(reinterpret_cast<char *>(top), 4096);
+                file.close();
+            } else top.position[(count + 1) % 1024] = index;
+            ++count;
         }
-        int FindEnd(){
+
+        int FindAvailable() {
             std::fstream file;
             file.clear();
             file.open(file_name);
-            if (!file.is_open()){
+            if (!file.is_open()) {
                 ds::OpenException e;
                 throw e;
             }
-            file.seekp(0, std::ios::end);
-            int location = file.tellp();
-            file.close();
-            return location;
+            if (!count) {
+                file.seekp(0, std::ios::end);
+                int location = file.tellp();
+                file.close();
+                return location;
+            } else {
+                int ret = top.position[count % 1024];
+                if (count % 1024 == 0) {
+                    int block_num = count / 1024 + 1;
+                    file.seekg((block_num - 2) * 1024, std::ios::beg);
+                    file.read(reinterpret_cast<char *>(&top), 4096);
+                }
+                --count;
+                return ret;
+            }
         }
     };
 }
