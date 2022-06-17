@@ -21,5 +21,5 @@ add_executable(code BackEnd/src/System.hpp
         BackEnd/lib/exceptions.hpp
         BackEnd/lib/utility.hpp
         BackEnd/src/RollBack.hpp
-        BackEnd/src/main.cpp
-        )
+        BackEnd/src/main_no_rollback.cpp
+        BackEnd/src/System_no_Rollback.hpp)
