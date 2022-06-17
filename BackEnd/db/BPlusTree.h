@@ -18,9 +18,10 @@ namespace ds {
     public:
         void GetSizeInfo() {
             std::cerr << "The size of Key is " << sizeof(Key) << std::endl;
-            std::cerr << "So the proper branch num is " << 1.0*(4096 - 17) / (4 + sizeof(Key)) << std::endl;
+            std::cerr << "So the proper branch num is " << 1.0 * (4096 - 17) / (4 + sizeof(Key)) << std::endl;
             std::cerr << "The size of Info is " << sizeof(Info) << std::endl;
-            std::cerr << "So the proper element num is " << 1.0*(4096 - 4) / (sizeof(Info) + sizeof(Key)) << std::endl;
+            std::cerr << "So the proper element num is " << 1.0 * (4096 - 4) / (sizeof(Info) + sizeof(Key))
+                      << std::endl;
             std::cerr << "================================" << std::endl;
         }
 
@@ -146,9 +147,9 @@ namespace ds {
             }
             new_node.children_num = max_key_num - max_key_num / 2;
             cur.children_num = max_key_num / 2;
-            new_node_loc = new_node.location = index_memory->FindEnd();
+            new_node_loc = new_node.location = index_memory->FindAvailable();
             new_node.isleaf = cur.isleaf;//after split they are in the same level;
-            index_memory->Append(new_node);
+            index_memory->Write(new_node_loc, new_node);
             splited_child_index = num;//the info about new node are recorded by reference
             if (!index_memory->Write(cur.location, cur)) {
                 ds::WriteException e;
@@ -193,12 +194,12 @@ namespace ds {
                     block.record[0] = info;
                     block.keys[0] = key;
                     block.size = 1;
-                    block.location = record_memory->FindEnd();
-                    cur.children[0] = record_memory->Append(block);
+                    cur.children[0] = block.location = record_memory->FindAvailable();
+                    record_memory->Write(block.location, block);
                     cur.keys[0] = block.keys[0];
                     cur.children_num++;
-                    cur.location = index_memory->FindEnd();
-                    root_index = index_memory->Append(cur);
+                    root_index = cur.location = index_memory->FindAvailable();
+                    index_memory->Write(root_index, cur);
                     root = cur;
                     //success = true;
                     return false;
@@ -258,9 +259,9 @@ namespace ds {
                     block.size = max_rcd_num / 2;
                     new_block.size = max_rcd_num - block.size;
                     new_block.next = block.next;
-                    block.next = record_memory->FindEnd();
+                    block.next = record_memory->FindAvailable();
                     new_block.prior = block.location;
-                    new_block.location = record_memory->FindEnd();
+                    new_block.location = block.next;
                     if (new_block.next != -1) {
                         Block after;
                         if (!record_memory->Read(new_block.next, after)) {
@@ -273,7 +274,8 @@ namespace ds {
                             throw e;
                         }
                     }
-                    int new_block_loc = record_memory->Append(new_block);
+                    int new_block_loc = block.next;
+                    record_memory->Write(block.next, new_block);
                     if (!record_memory->Write(cur.children[num], block)) {
                         ds::WriteException e;
                         throw e;
@@ -298,8 +300,8 @@ namespace ds {
                             root.keys[0] = cur.keys[0];
                             root.keys[1] = new_node.keys[0];
                             root.isleaf = false;
-                            root.location = index_memory->FindEnd();
-                            root_index = index_memory->Append(root);
+                            root_index = root.location = index_memory->FindAvailable();
+                            index_memory->Write(root.location, root);
                             //success = true;
                             return false;
                         }
@@ -351,8 +353,8 @@ namespace ds {
                             root.keys[0] = parent.keys[0];
                             root.keys[1] = new_node.keys[0];
                             root.isleaf = false;
-                            root.location = index_memory->FindEnd();
-                            root_index = index_memory->Append(root);
+                            root_index = root.location = index_memory->FindAvailable();
+                            index_memory->Write(root.location, root);
                             //success = true;
                             return false;
                         }
@@ -451,6 +453,7 @@ namespace ds {
                 front.keys[i] = rear.keys[j];
             }
             front.children_num += rear.children_num;
+            index_memory->Delete(rear.location);
             if (!index_memory->Write(front.location, front)) {
                 ds::WriteException e;
                 throw e;
@@ -480,6 +483,7 @@ namespace ds {
                 ds::WriteException e;
                 throw e;
             }
+            record_memory->Delete(rear.location);
         }
 
         //merged index is the child that remains
@@ -720,6 +724,7 @@ namespace ds {
                         if (parent.location == root.location) {
                             if (parent.children_num == 1) {
                                 root = merged_child;
+                                index_memory->Delete(root_index);
                                 root_index = merged_child.location;
                                 //success = true;
                                 cur = parent;
@@ -804,9 +809,9 @@ namespace ds {
 //            int_memory->Write(sizeof(int), root_index);
             delete[]index_file;
             delete[]record_file;
+            delete int_memory;
             delete index_memory;
             delete record_memory;
-            delete int_memory;
         }
 
         //插入一个元素，参数是插入元素的键值和记录的详细信息，返回插入是否成功
