@@ -1,4 +1,4 @@
-#include "System_no_Rollback.hpp"
+#include "System_for_FrontEnd.hpp"
 #include <iostream>
 
 int main() {
@@ -16,7 +16,11 @@ int main() {
     //sys.GetCachedSize();
     //sys.GetRollBackSize();
     std::string str;
-    while (getline(std::cin, str))sys.Opt(str);
+    while (getline(std::cin, str)) {
+        bool res = sys.Opt(str);
+        std::cout << "__end__" << std::endl;
+        if (res)break;
+    }
     clock_t end = clock();
     std::cerr << "Running Time : Using  " << (double) (end - sts) / CLOCKS_PER_SEC << " seconds " << std::endl;
     return 0;

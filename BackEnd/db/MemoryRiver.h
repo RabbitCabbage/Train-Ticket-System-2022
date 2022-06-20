@@ -36,9 +36,11 @@ namespace ds {
             }
             file.close();
 
-            trash_name = new char[strlen(fn) + 2];
-            trash_name[0] = '_';
-            strcpy(trash_name + 1, fn);
+            int len = strlen(fn);
+            trash_name = new char[len + 2];
+            strcpy(trash_name, fn);
+            trash_name[len] = '_';
+            trash_name[len + 1] = '\0';
 
             file.clear();
             file.open(trash_name, std::ios::in);
