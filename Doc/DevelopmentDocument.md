@@ -54,9 +54,16 @@
 
 ### 缓存策略
 
-- 对`bptree`的`find`操作，`modify`操作进行缓存。
-- 用一个闭散列表来实现，有冲突时直接下放到外存。
-- 发生修改的元素使用链表连接，在`bptree`中执行`lower_bound`操作时，先遍历链表执行`flush`操作。
+- 为加快缓存的速度，缓存使用hash table来实现，并且采用闭散列表，防止内存溢出
+- 有一个valid位，表示这个hash值是否被命中，当我们访问一个元素标记他被命中
+- 有一个index位，表示这个hash值对应的键值是什么，如果再次访问时hash值键值都相同才能说明访问的是同一条记录
+- 有一个dirty位表示的是这个hash值所对应的元素是否被修改，如果再次访问的时候已修改并且发生冲突就会写穿到外存
+- 发生修改的元素使用链表连接，以加快`bptree`中执行`lower_bound`操作或者程序结束时外存的更新，遍历链表执行`flush`操作。
+
+### 空间回收
+- 在bpt中实现了空间回收，在另外的一个文件中记录下要回收的块的位置和数目
+- 其实相当于是一个空位的栈结构
+- 每一次要写一个新的块的时候优先到这个文件中找可以写入的回收位置
 
 ***
 
@@ -208,26 +215,39 @@ public:
 同时实现信息的缓存以减少外存读取次数，最终封装为CacheMap的public函数，可以直接调用
 BPlusTree提供的函数接口如下：（具体实现时会有其他某些private工具函数）,并且是写给Cache调用的
 ```cpp
-template<typename Key, typename Info, class KeyCompare = std::less<Key>>
-
-class BPlusTree {
-    //以下两个值暂定，可能以后根据实际情况更改
-    static const int max_key_num = 100;//一个数据块最多记有多少个键值
-    static const int max_rcd_num = 30;//一个数据块最多存多少条记录
-    char index_file[20];
-    char record_file[20];
-    MemoryRiver memory;
-private:
-    class Node {
-        int nxt, before;// B+树叶子节点构成的的链表
-        bool isleaf;//标记是不是叶节点
-        int children[max_key_num + 1];
-        Key keys[max_key_num];
+template<typename Key, typename Info, const int max_key_num = 5, const int max_rcd_num = 5, class KeyCompare = std::less<Key>>  
+  
+class BPlusTree {  
+public:  
+    struct Node {  
+        int location = -1;  
+        bool isleaf = true;//标记是不是叶节点  
+        int children_num = 0;  
+        int children[max_key_num];  
+        Key keys[max_key_num];  
+    };  
+  
+  
+    struct Block {  
+        int next = -1, prior = -1;  
+        int location = -1;  
+        int size = 0;  
+        Key keys[max_rcd_num];  
+        Info record[max_rcd_num];  
     };
-
-    class Block {
-        Info record[max_rcd_num];
-    };
+	
+	class iterator {  
+         private:  
+         Key key;  
+         Info info;  
+         BPlusTree<Key, Info, max_key_num, max_rcd_num, KeyCompare> *this_bpt = nullptr;  
+         Block block;//所在的block  
+         int block_index;//在block中的标号  
+         bool at_end = false; 
+		 public:
+		 iterator operator++(int x)
+		 };
+	 
 
 public:
     //B+树的构造函数,由一个文件构造
@@ -260,7 +280,36 @@ public:
 
     //返回现在总共有多少条记录
     int GetSize() {}
-
+   private:
+   //这里是一些工具函数
+   //一类是经常使用的查找函数，封装成一个工具
+   int BinarySearchLess(Key array[], int size, const Key &key)  
+ 
+   int BinarySearch(const Block &block, const Key &key)  
+  
+  //还有这一类是在插入删除时经常用到的处理儿子的分裂和合并的函数
+  //提高代码复用率
+   void Split(Node &cur, Node &new_node, int &new_node_loc, int &splited_child_index, int num)  
+   
+   void AddChild(Node &cur, const Key &first_key, const Key &added_first_key, int added_loc, int num)  
+   
+   void MergeBrothers(Node &front, Node rear)  
+  
+   void MergeBlocks(Block &front, Block &rear, int front_loc)  
+  
+   bool BorrowChild(Node &cur, int num, Node &parent, int &brother_to_merge_index, Node &brother_to_merge)  
+ 
+   std::pair<std::pair<int, int>, Info> RecursionFind(const Key &key)  
+   
+   //这个是插入的私有函数，递归实现
+   //它是向以cur作为根节点的子树进行插入，返回值表示这个节点是否发生了分裂
+   //在发生分裂时处理它的父节点，并且相同的方法向上回溯，直到根，特殊讨论
+   bool  RecursionInsert(Node &cur, const Key &key, const Info &info, bool &success, int &splited_child_index, Node &new_node, int &new_node_loc)  
+  
+   //这个是删除的私有函数，递归实现
+   //它是向以cur作为根节点的子树进行搜索删除，返回值表示这个节点是否需要兄弟节点的支援
+   //如果返回true就处理它的父节点，借一个孩子或者发生合并
+   bool RecursionRemove(Node &cur, const Key &key, bool &success, Node parent)
 };
 
 ```
@@ -277,18 +326,28 @@ Cache的实现用HashMap，用双hash解决冲突（这里默认键值应该是�
 当我们要插入一个新的元素，就把信息同时写入外存和cache，并且标注valid=1，dirty=0，相当于在cache中加入了一个被命中而没有被修改过的元素
 当CacheMap的size达到上限时，以及程序结束需要析构时，就应该把它清空，调用B+Tree的Modify写入外存
 ```cpp
-template<typename Key, typename Info, class KeyCompare = std::less<Key>>
-
-class CacheMap {
-private:
-    long long Hash1(char *s);
-
-    long long Hash2(char *s);
-
-    static const long long max_size = 41519;//表示的是这个link_map的最大容量，是一个质数
-    bool valid[max_size];
-    bool dirty[max_size];
-    long long index[max_size];
+template<typename Key, typename Info, const int max_size = 17, const int max_key_num = 5, const int max_rcd_num = 5, class Hash=std::hash<Key>, class KeyCompare = std::less<Key>>  
+  
+class CacheMap {  
+private:  
+    struct node {  
+        int dirty_index = -1;//这个dirty位是哪一个  
+        node *nxt = nullptr;//记录的是，下一个dirty位是哪一个  
+        node *bef = nullptr;  
+  
+        node(int ind = -1, node *n = nullptr, node *b = nullptr) {  
+            dirty_index = ind, nxt = n;  
+        }  
+    };  
+  
+    bool valid[max_size];  
+    bool dirty[max_size];  
+    node *prev[max_size];  
+    node *head = nullptr, *rear = nullptr;//维护一个串起所有dirty的链表，每增加一个dirty就在链表尾部加一个节点  
+    Key index[max_size];//记下这时的这个hash所对应的是什么键值  
+    Info information[max_size];  
+    KeyCompare cmp;  
+    Hash hash_func;
 public:
     CacheMap(){}
     ~CacheMap(){}
@@ -323,27 +382,3 @@ public:
 };
 ```
 
-### 基于文件读写的链表
-
-文件存储的链表类，支持读头尾节点，以及按照插入顺序依次读取所有记录
-每一个List会对应一个用户，维护这个用户的所有订单信息
-所有用户的订单信息链表存在一个文档里
-
-
-```cpp
-
-template <typename T>//T是一个定长的信息结构体
-class List{
-    private:
-    int head,rear;//索引的头节点，尾节点
-    public:
-    List();
-    ~List();
-    void PushBack(const T&t);//在这条链表的最后插入
-    T QueryHead();//询问头节点信息
-    T QueryRear();//询问最后的尾节点信息
-    void PopBack();//弹出最后一个节点
-    vector<T> Queryall();//询问所有节点信息，按照插入顺序放入vector
-};
-
-```
