@@ -14,7 +14,7 @@
 
 ### 模块划分图
 
-![](https://notes.sjtu.edu.cn/uploads/upload_8e9f8cac32415cfbb2e85ed9ad14703c.png)
+![TrainTicketSystem](C:\Users\m1375\Downloads\TrainTicketSystem.png)
 
 ### 火车票系统模块`/src`
 
@@ -27,30 +27,40 @@
 ### 工具库模块 `/lib`
 
 - `vector.hpp`,`map.hpp`,`linked_hashmap.hpp`
-- `algorithm.hpp` **自己写的一些工具**
+- `tools.hpp` **自己写的一些工具**
 
 ### 数据库内存管理模块 `/db`
 
-- `bptree.hpp` **B+树的主体部分**
-- `linked_list.hpp` **一个基于文件读写的链表**
-  
+- `BPlusTree.hpp` **B+树的主体部分**
+- `CacheMap.hpp`**缓存类**
+- `MemoryRiver.hpp`**文件读写接口**
+
 ***
 
-### 流程图
+## 设计思路
 
-![](https://notes.sjtu.edu.cn/uploads/upload_e71802e9cb23d446dbdc87cf8ae40b2d.png)
+### 逻辑主体
 
-## 类和成员的设计（逻辑部分）
-
-### 设计思路
-
-- 一些定长的支持随机查找的信息块，包括用户的基本信息和车次的基本信息，分别用B+树存储在外存中。
-
-- 一些仅仅需要顺序查找的定长信息块，例如每个用户的订单列表，经过每一个车站的车次，这些信息主题将以链表的形式存储在外存中，但是为了找到链表的头结点，将用B+树类设置头结点的索引，具体表现为一个链表对象，直接存储在对应的信息当中。
-
+- 定长的信息直接用B+树单键值索引的方式，存在外存中。
+- 不定长的信息，例如**每个用户的所有订单**，**每一个站的所有经过车次**等，使用二元组来存储在B+树中，形如`std::pair<class A,class B>`的形式。查找时可以先固定第一维的大小，这样可以实现所有第一维相同元素的遍历。
+- 获取键值为一段连续区间的信息，采用B+树内置的迭代器完成。
 - 每一条指令均由`Commander.hpp`解析后返回一个标准化指令类，该指令类经过`System.hpp`的函数处理后配送到不同的操作函数去。
 
-- 为了避免前期代码的混乱，回滚操作中需要存储的指令信息，均由一个单独的库`RollBack.hpp`完成。
+### 回滚策略
+
+- 对于三种操作，**插入**的逆操作为**删除**，**删除**的逆操作为**插入**，**修改**的逆操作为**修改**。
+- 于是对于每一颗`bptree`，开一个外存的栈来实现逆操作序列的存储。
+- 外存的栈同样采用分块的形式，对象中自带一个大小约为`4096`的块进行缓存。
+
+### 缓存策略
+
+- 对`bptree`的`find`操作，`modify`操作进行缓存。
+- 用一个闭散列表来实现，有冲突时直接下放到外存。
+- 发生修改的元素使用链表连接，在`bptree`中执行`lower_bound`操作时，先遍历链表执行`flush`操作。
+
+***
+
+## 类和成员的设计
 
 逻辑部分主要由`hnyls2002`负责，为了让各个功能更加清晰，此处的类与成员的设计均根据功能展开。
 
@@ -59,9 +69,9 @@
 
 #### 核心类
 
-- `class SystemManager`
+- `class System`
 
-    整个火车票系统的**核心类**，所有的指令都在此类中完成。
+    整个火车票系统的**核心类**，所有的操作都在此类中完成。
     
 
 #### 用户信息的维护
@@ -69,7 +79,7 @@
 - `struct UserInfo`
     用户信息类，储存每一个用户的**基本信息**。
     
-- `bptree UserDataBase (UserName -> UserInfo)`
+- `bptree UserDb (UserName -> UserInfo)`
 
     用于储存用户的信息的**数据库**，添加和删除用户信息在`bptree`上操作。
 
@@ -81,14 +91,26 @@
 
 #### 车次信息的维护
 
-- `struct TrainInfo`
+- `struct BasicTrainInfo`
 
-    每一列车次的**基本信息**。
+    每一列车次的**最为基本的信息**（不包括所有停靠的车站名），由于**除了站名之外的所有信息**都会频繁地被访问，而所有停靠站的站名**空间占用十分庞大**，所以这样的设计可以尽可能地减少一个对象的大小，从而增大一个数据块的数据个数，**减少树高**。
     
-- `bptree TrainDataBase (TrainID -> TrainInfo)`
+- `bptree BasicTrainDb (TrainID -> BasicTrainInfo)`
 
     用于储存列车的信息的**数据库**。
     
+- `class TrainInfo`、`bptree TrainDb`
+
+    主要用于储存一辆列车**经过的所有车站**，可以发现只有在`query_train`操作中才会要连续地访问这些车站，于是整个`TrainDb`只会在`query_train`中被用到。
+
+#### 车票查询&换乘功能
+
+需要对于每一个车站，查找所有经过该站的车次，于是用`bptree`维护一个**一对多**的数据类型。
+
+- `struct StInfo`、`bptree StDb`
+
+  即一个站对应的列车信息，不难发现只需要简单维护**这个站在这辆车上的序号**，**票价前缀和**，**时间前缀和**等几个简单的数据即可。
+
 #### 当日车次状态查询
 
 - `struct DayTrain`
@@ -103,47 +125,13 @@
 
 - `struct Order`
 
-    用于保存一份订单的**基本信息**，每一位用户的**订单记录**以这个类的形式保存在外存的链表中。
-    
--  `List UserInfo::Order_List (type = Order)`
-   
-    `UserInfo`的成员，查询订单的时候，在`bptree`中查找`UserInfo`，进而得到一个`List`。
+    用于保存一份订单的**基本信息**，每一位用户的**订单记录**也是使用B+树的**一对多**类型数据。
 
 #### 候补列表查询
 
 - `struct Pender`
 
-    候补的用户为一个**队列结构**，这里采用**链表**存储在外存中，储存的信息类为`Pender`。
-    
-- `List DayTrain::Pending_List`
-
-    `DayTrain`的成员，查询候补列表时，在`bptree`中查找`Daytrain`，进而得到候补列表。
-    
-#### 车票查询&换乘功能
-
-- `bptree TrainSet ( Station -> TrainID)`
-
-    用于储存经过某个站的火车的`TrainID`，返回一个`List`。
-    
-- `List TrainPass_List`
-  
-    储存在`bptree`中，和前面的`List`相同，实际上是一个用于读取外存的操作对象。
-
-### 命令行解析库`/src/Commander.hpp`
-
-- `struct CmdType`
-  
-    标准的指令库，用于存储每一条指令。
-
-### 回滚类`/src/RollBack.hpp`
-
-- `stuct CmdRecord`
-  
-    为了能正确处理回滚操作，该`CmdRecord`应该还需要存储当前这次操作的返回值，于是将`CmdRecord`设置成从`CmdType`继承。
-    
-- `List CmdDataBase (type = CmdRecord) `
-  
-    用于将每一条指令存储在外存中，实际上相当于维护了一个栈结构，需要`roll back`的时候从链表的顶端删除元素。
+    候补的用户为一个**队列结构**，同样采用**一对多**类型存储在B+树种，储存的信息类为`Pender`。
 
 ### 自定义工具类 `/lib/algorithm.hpp`
 
@@ -154,6 +142,10 @@
 - `struct Time`
 
     用于存储火车的时间。
+    
+- `struct fstr<len>`
+
+    固定长度字符串
 
 ## 函数接口（逻辑部分）
 
@@ -187,22 +179,6 @@ std::string Opt(cosnt CmdType & arg);
 ```cpp
 CmdType Parser(const std::string &arg);
 ```
-
-### 自定义工具类`/lib/algorithm.hpp`
-
-目前想到的就只有快速排序字符串相关，其余内容待定。
-
-```cpp
-template<typename T> void sort(T *,T *,T (*cmp)(cosnt T&,const T&))
-int StrToInt(std::string);
-std::string IntToStr(int);
-```
-
-## 存储部分 
-
-理论上直接调用B+树或者调用缓存是同样的效果
-逻辑部分在调用时不用知道是调用了直接读写到文件的B+树还是缓存了
-可以考虑`#difine CacheMap bptree` 即可
 
 ### B+ Tree
 
