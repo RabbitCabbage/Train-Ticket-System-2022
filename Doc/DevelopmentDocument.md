@@ -14,7 +14,7 @@
 
 ### 模块划分图
 
-![TrainTicketSystem](C:\Users\m1375\Downloads\TrainTicketSystem.png)
+![TrainTicketSystem](/TrainTicketSystem.png)
 
 ### 火车票系统模块`/src`
 
