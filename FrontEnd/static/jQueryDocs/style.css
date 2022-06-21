@@ -1,0 +1,15 @@
+body {
+	font-family: Arial, Helvetica, sans-serif;
+}
+
+table {
+	font-size: 1em;
+	border-radius: 3px;
+	width:340px;
+	background-color:gold;
+	color:cornflowerblue;
+}
+
+.ui-draggable, .ui-droppable {
+	background-position: top;
+}

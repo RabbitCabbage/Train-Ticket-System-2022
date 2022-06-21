@@ -45,7 +45,6 @@ namespace hnyls2002 {
     CmdType Parser(const std::string &str) {
         CmdType ret;
         auto res = split(str);
-        std::cout << res[0] << " ";
         ret.TimeStamp = std::stoi(res[0].substr(1, res[0].size() - 2));
         for (int i = 0; i < CmdMax; ++i)
             if (res[1] == CmdName[i]) {

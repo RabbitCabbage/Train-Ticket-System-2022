@@ -1,0 +1,310 @@
+<html>
+
+<head>
+    <link href="https://fonts.googleapis.com/css?family=Poppins:200,300,400,600,700,800" rel="stylesheet">
+    <link href="../static/ArgonDocs/assets/vendor/nucleo/css/nucleo-icons.css" rel="stylesheet">
+    <link href="https://use.fontawesome.com/releases/v5.0.6/css/all.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/2/docsearch.min.css">
+    <link href="../static/ArgonDocs/" rel="stylesheet">
+    <link href="../static/ArgonDocs/assets/css/nucleo-svg.css" rel="stylesheet">
+    <link href="../static/ArgonDocs/assets/css/font-awesome.css" rel="stylesheet">
+    <link href="../static/ArgonDocs/assets/css/argon-design-system.min.css?v=1.2.2" rel="stylesheet">
+    <link type="text/css" href="../static/ArgonDocs/assets/css/argon-design-system.min.css" rel="stylesheet">
+    <link href="../static/ArgonDocs/assets/css/argon-design-system.css" rel="stylesheet">
+    <title>buy_ticket</title>
+    <script type="text/javascript" async src="../static/ArgonDocs/assets/js/argon-design-system.js"></script>
+    <script src="../static/ArgonDocs/assets/js/argon-design-system.min.js?v=1.2.2" type="text/javascript"></script>
+    <script type="text/javascript" async src="../static/ArgonDocs/assets/js/core/jquery.min.js"></script>
+    <script type="text/javascript" async src="../static/ArgonDocs/assets/js/core/popper.min.js"></script>
+    <script type="text/javascript" async
+        src="../static/ArgonDocs/assets/js/plugins/bootstrap-datepicker.min.js"></script>
+    <script type="text/javascript" async src="../static/ArgonDocs/assets/js/plugins/bootstrap-switch.js"></script>
+    <script type="text/javascript" async src="../static/ArgonDocs/assets/js/plugins/chartjs.min.js"></script>
+    <script type="text/javascript" async src="../static/ArgonDocs/assets/js/plugins/datetimepicker.js"></script>
+    <script type="text/javascript" async src="../static/ArgonDocs/assets/js/plugins/jquery.sharrre.min.js"></script>
+    <script type="text/javascript" async src="../static/ArgonDocs/assets/js/plugins/moment.min.js"></script>
+    <script type="text/javascript" async src="../static/ArgonDocs/assets/js/plugins/nouislider.min.js"></script>
+    <script type="text/javascript" async
+        src="../static/ArgonDocs/assets/js/plugins/perfect-scrollbar.jquery.min.js"></script>
+    <style>
+        body {
+            background-image: url("../static/ShenDong/images/mmexport1654791626660_edit_72207163888459.jpg");
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: 0px 50px;
+        }
+    </style>
+    <link rel="stylesheet" href="../static/jQueryDocs/jquery-ui.css">
+    <link rel="stylesheet" href="../static/jQueryDocs/style.css">
+    <script src="../static/jQueryDocs/jquery-1.9.1.js"></script>
+    <script src="../static/jQueryDocs/jquery-ui.js"></script>
+    <script src="../static/jQueryDocs/1.10.2.jquery.min.js"></script>
+    <script>
+        $(function () {
+            $("#datepicker").datepicker();
+        });</script>
+</head>
+
+<body>
+    <style>
+        .navbar {
+            background-color: orange;
+            z-index: 3;
+        }
+
+        img.ACMlogo {
+            border-radius: 50%;
+            overflow: hidden;
+            width: 50px;
+            position: relative;
+            left: -100px;
+        }
+
+        .navbar-brand {
+            font-size: 27px;
+            position: relative;
+            left: -110px;
+        }
+
+        a.ACMlogo :hover {
+            filter: brightness(77%)
+        }
+    </style>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="ACMlogo" href="https://acm.sjtu.edu.cn/wiki/%E8%AF%BE%E7%A8%8B%E4%B8%AD%E5%BF%83"><img
+                    class="ACMlogo" async src="../static/ShenDong/images/mmexport1651290602530.png"></a>
+            <a class="navbar-brand"
+                href="https://github.com/ACMClassCourse-2021/TicketSystem/blob/master/README.md">Train
+                Ticket System</a>
+            <!--这下面是导航栏的很多下拉栏，每一个都有下拉栏-->
+            <!--车票查询的下拉栏-->
+            <style>
+                .dropdown-content {
+                    display: none;
+                    z-index: 0;
+                    position: absolute;
+                    background-color: white;
+                    min-width: 160px;
+                    box-shadow: 0px 8px 16px 0px rgba(1, 1, 0, 0.3);
+                }
+
+                .dropdown-content a {
+                    color: royalblue;
+                    padding: 12px 16px;
+                    text-decoration: none;
+                    display: block;
+                }
+
+                .dropdown-content a:hover {
+                    color: royalblue;
+                    padding: 12px 16px;
+                    text-decoration: none;
+                    display: block;
+                    background-color: gold;
+                }
+
+                .dropdown:hover .dropdown-content {
+                    display: block;
+                }
+
+                #search {
+                    position: relative;
+                    left: 0px;
+                }
+
+                #instruction {
+                    position: relative;
+                    left: 0px;
+                }
+
+                #info {
+                    position: relative;
+                    left: 0px;
+                }
+            </style>
+            <div class="dropdown" id="search">
+                <a class="btn btn-sm" href="#">
+                    <i class="fa fa-search fa-inverse fa-2x"></i></a>
+                <div class="dropdown-content">
+                    <a class="dropdown-item" href="/to_query_train">查询列车</a>
+                    <a class="dropdown-item" href="/to_query_ticket">查询车票</a>
+                    <a class="dropdown-item" href="/to_qeury_transfer">查询换乘</a>
+                </div>
+            </div>
+            <!---这里是买票的相关操作-->
+            <div class="dropdown" id="purchase">
+                <a class="btn btn-sm" href="#">
+                    <i class="fa fa-shopping-cart fa-inverse fa-2x"></i></a>
+                <div class="dropdown-content">
+                    <a class="dropdown-item" href="/to_buy_ticket">购买车票</a>
+                    <a class="dropdown-item" href="/to_query_order">查看订单</a>
+                    <a class="dropdown-item" href="/to_refund_ticket">退票</a>
+                </div>
+            </div>
+            <!--改变个人信息等等的下拉栏-->
+            <div class="dropdown" id="info">
+                <a class="btn btn-sm" href="#">
+                    <i class="fa fa-user-circle-o fa-inverse fa-2x"></i></a>
+                <div class="dropdown-content">
+                    <a class="dropdown-item" href="/show_self_profile">个人信息</a>
+                    <a class="dropdown-item" href="/to_query_user">查找用户</a>
+                    <a class="dropdown-item" href="/to_modify_profile">修改信息</a>
+                    <a class="dropdown-item" href="/ro_run_manager">以管理员身份运行</a>
+                    <a class="dropdown-item" href="/log_out">退出登录</a>
+                </div>
+            </div>
+            <!--返回说明书的提示信息-->
+            <style>
+                #tip {
+                    color: royalblue;
+                    text-align: center;
+                    margin: auto;
+                    text-decoration: none;
+                    display: block;
+                    background-color: gold;
+                    right: 0;
+                }
+            </style>
+            <div class="dropdown" id="instruction">
+                <a class="btn btn-sm" href="/instruction">
+                    <i class="fa fa-sticky-note fa-inverse fa-2x"></i></a>
+                <div class="dropdown-content">
+                    <p id="tip">网页说明</p>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <style>
+        .dash {
+            /* z-index: -1; */
+            color: lightcyan;
+            width: 50%;
+            position: relative;
+            margin: 30px 20px;
+            padding: 10px 40px;
+            left: 220px;
+            border-radius: 5px;
+            background-color: rgba(2, 2, 2, 0.5);
+        }
+
+        h2 {
+            text-align: center;
+            font-weight: 700;
+            color: orange;
+        }
+
+        input[type=submit],
+        button {
+            width: 80%;
+            position: relative;
+            left: 30px;
+            margin: 5px 20px;
+            padding: 2px 3px;
+            background-color: orange;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        input[type=text] {
+            width: 80%;
+            position: relative;
+            left: 30px;
+            margin: 5px 37px;
+            padding: 3px 20px;
+            left: -10px;
+            display: inline-block;
+            border: 1px solid;
+            background-color: antiquewhite;
+            border-color: gold;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        #spinner {
+            width: 100%;
+            position: relative;
+            margin: 0px;
+            padding: 8px 20px;
+            left: -20px;
+            display: inline-block;
+            border: 1px solid;
+            background-color: antiquewhite;
+            border-color: gold;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        #spinnertip {
+            color: lightcyan;
+        }
+
+        input[type=time] {
+            margin: 10px 5px;
+            padding: 8px 20px;
+            border: 1px solid;
+            background-color: antiquewhite;
+            border-color: gold;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        #spinnertip {
+            font-size: 14;
+        }
+
+        .inputer {
+            position: relative;
+            left: 27px;
+        }
+    </style>
+    <script>
+        function validateForm() { }
+    </script>
+    <div class="dash">
+        <h2>购买车票</h2>
+        <style>
+            #remind,
+            #sum {
+                color: lightcyan;
+                text-align: center;
+            }
+        </style>
+        <div id="remind">{{alert_info}}</div>
+        <form name="buy_ticket" id="buy_ticket" onsubmit="return validateForm()" action="/buy_ticket" method="post">
+            <div class="inputer">
+                <label class="reminder" for="trainID">车次</label>
+                <br />
+                <input type="text" name="trainId" id="trainId" placeholder="请输入车次">
+                <br />
+            </div>
+            <div class="inputer">
+                <label class="reminder" for="number">购买数量</label>
+                <br />
+                <input type="text" name="number" id="number" placeholder="请输入购买数量">
+            </div>
+            <div class="inputer">
+                <label class="reminder" for="startdate">发车日期</label>
+                <br />
+                <input type="text" name="datepicker" id="datepicker" placeholder="请选择发车日期">
+                <br />
+            </div>
+            <div class="inputer">
+                <label class="reminder" for="start">起点站</label>
+                <br />
+                <input type="text" name="from" id="from" placeholder="请输入起点站">
+                <br />
+                <label class="reminder" for="to">终点站</label>
+                <br />
+                <input type="text" name="to" id="to" placeholder="请输入终点站">
+                <br />
+            </div>
+            <br />
+            <input type="submit" value="确定">
+        </form>
+    </div>
+
+</body>
