@@ -1,0 +1,9 @@
+ a{
+background-color: #111111;
+color: #ffbbaa;
+text-decoration:none;
+}
+a:hover{
+background-color: #222222;
+color: #aaaa00;
+}
