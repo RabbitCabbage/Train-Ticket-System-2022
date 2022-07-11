@@ -1,0 +1,12 @@
+.idea/*
+cmake-build-debug/*
+/BackEnd/cmake-build-debug/*
+/BackEnd/src/note.md
+/BackEnd/src/modify.md
+BackEnd/src/log.txt
+*.exe
+*.in
+*.out
+*.pdf
+output*.txt
+/FrontEnd/data/*
