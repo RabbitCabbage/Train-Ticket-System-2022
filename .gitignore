@@ -10,3 +10,4 @@ BackEnd/src/log.txt
 *.pdf
 output*.txt
 /FrontEnd/data/*
+!/FrontEnd/data/.gitkeep

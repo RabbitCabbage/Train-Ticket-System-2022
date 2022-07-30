@@ -34,6 +34,30 @@ sys.read()
 sys.write("[5] release_train -i SJTU2021")
 sys.read()
 
+sys.write("[5] add_train -s 上海虹桥|杭州东|南昌西|长沙南 -d 06-17|08-31 -x 8:00 -m 19260718 -p 0|0|0|0 -i G817 -o 15|26 -t 45|120|60 -y G -n 4")
+sys.read()
+
+sys.write("[5] release_train -i G817")
+sys.read()
+
+sys.write("[5] add_train -s D22|D19 -d 06-17|08-31 -x 8:00 -m 10260817 -p 0 -i Dorm -o | -t 120 -y D -n 2")
+sys.read()
+
+sys.write("[5] release_train -i Dorm")
+sys.read()
+
+sys.write("[5] add_train -s D22|D19 -d 06-17|08-31 -x 8:00 -m 10260817 -p 0 -i Dorm -o | -t 120 -y D -n 2")
+sys.read()
+
+sys.write("[5] release_train -i Dorm")
+sys.read()
+
+sys.write("[5] add_train -s freshman|unfreshman -d 06-17|09-31 -x 8:00 -m 10260817 -p 0 -i SJTU -o | -t 120 -y D -n 2")
+sys.read()
+
+sys.write("[5] release_train -i SJTU")
+sys.read()
+
 sys.write(
     "[6] buy_ticket -f 北京市 -i ACM2021 -u admin -n 5 -d 08-16 -q true -t 山东省兖州市")
 sys.read()
